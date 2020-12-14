@@ -55,8 +55,11 @@ body {
   background: #eee;
 }
 
-.board .cell:focus {
+.cell.selected {
   background: #ccd7ff;
+}
+
+.board .cell:focus {
   outline: none;
 }
 

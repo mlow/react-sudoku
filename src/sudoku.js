@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
+import classNames from "classnames";
 import { splitIntoRegions } from "./math";
 import "./sudoku.css";
 
-const Cell = (props) => (
-  <button {...props} className="cell">
-    {props.value}
-  </button>
-);
+const Cell = ({ onClick, cell }) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={cell.disabled}
+      className={classNames("cell", {
+        selected: cell.selected,
+      })}
+    >
+      {cell.value}
+    </button>
+  );
+};
 
 const Region = ({ ordinal, cells, onClick = () => {} }) => (
   <div className="region">
@@ -15,7 +24,7 @@ const Region = ({ ordinal, cells, onClick = () => {} }) => (
       return (
         <Cell
           key={`${ordinal}-${i}`}
-          value={cell}
+          cell={cell}
           onClick={() => onClick(cellIndex)}
         />
       );
@@ -32,28 +41,48 @@ const Board = (props) => (
 );
 
 export const Sudoku = () => {
-  const [cells, setCells] = useState(Array(81).fill(null));
+  const [cells, setCells] = useState(
+    Array(81)
+      .fill()
+      .map(() => ({}))
+  );
   const [selected, setSelected] = useState(undefined);
   const board = useRef(null);
   const input = useRef(null);
 
+  const handleSelect = (index) => {
+    if (selected !== undefined) handleUnselect(false);
+    cells[index].selected = true;
+    setCells(cells.slice());
+    setSelected(index);
+  };
+
+  const handleUnselect = (update = true) => {
+    if (selected === undefined) return;
+    delete cells[selected].selected;
+    if (update) setCells(cells.slice());
+    setSelected(undefined);
+  };
+
   useWindowClickListener(({ target }) => {
     if (![board, input].some(({ current }) => current.contains(target))) {
       // unselect our current cell when outside of board clicked
-      setSelected(undefined);
+      handleUnselect();
     }
   });
 
   const boardEvents = {
     onClick: (index) => {
-      setSelected(index);
+      handleSelect(index);
     },
   };
 
   const inputEvents = {
     onClick: (index) => {
-      cells[selected] = index + 1;
-      setCells(cells.slice());
+      if (selected !== undefined) {
+        cells[selected].value = index + 1;
+        setCells(cells.slice());
+      }
     },
   };
 
@@ -63,7 +92,11 @@ export const Sudoku = () => {
         <Board cells={cells} {...boardEvents} />
       </div>
       <div ref={input} className="input">
-        <Region ordinal={0} cells={range(1, 9)} {...inputEvents} />
+        <Region
+          ordinal={0}
+          cells={range(1, 9).map((x) => ({ value: x }))}
+          {...inputEvents}
+        />
       </div>
     </div>
   );
