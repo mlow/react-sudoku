@@ -9,11 +9,11 @@ body {
 
 .game {
   display: flex;
+  align-items: flex-start;
 }
 
 .input-area {
   margin-left: 20px;
-  height: 100%;
   border-right: 2px solid #999;
   border-bottom: 2px solid #999;
 }
@@ -30,6 +30,10 @@ body {
 
 .input-area > button:hover {
   background-color: #eee;
+}
+
+.input-area > button:focus {
+  outline: none;
 }
 
 .input .cell {
@@ -73,7 +77,7 @@ body {
   background: #ccd7ff;
 }
 
-.board .cell:focus {
+.cell:focus {
   outline: none;
 }
 

@@ -40,6 +40,21 @@ const Board = (props) => (
   </div>
 );
 
+const Input = ({ onInput }) => {
+  return (
+    <div class="input-area">
+      <div className="input">
+        <Region
+          ordinal={0}
+          cells={range(1, 9).map((x) => ({ value: x }))}
+          onClick={(i) => onInput(i + 1)}
+        />
+      </div>
+      <button onClick={() => onInput(null)}>Erase</button>
+    </div>
+  );
+};
+
 export const Sudoku = () => {
   const [cells, setCells] = useState(
     Array(81)
@@ -78,32 +93,13 @@ export const Sudoku = () => {
     }
   });
 
-  const boardEvents = {
-    onClick: (index) => {
-      handleSelect(index);
-    },
-  };
-
-  const inputEvents = {
-    onClick: (index) => {
-      handleSetValue(index + 1);
-    },
-  };
-
   return (
     <div className="game">
       <div ref={board}>
-        <Board cells={cells} {...boardEvents} />
+        <Board cells={cells} onClick={handleSelect} />
       </div>
-      <div ref={input} className="input-area">
-        <div className="input">
-          <Region
-            ordinal={0}
-            cells={range(1, 9).map((x) => ({ value: x }))}
-            {...inputEvents}
-          />
-        </div>
-        <button onClick={() => handleSetValue(null)}>Clear</button>
+      <div ref={input}>
+        <Input onInput={handleSetValue} />
       </div>
     </div>
   );
