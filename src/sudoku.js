@@ -64,6 +64,13 @@ export const Sudoku = () => {
     setSelected(undefined);
   };
 
+  const handleSetValue = (value) => {
+    if (selected !== undefined && cells[selected].value !== value) {
+      cells[selected].value = value;
+      setCells(cells.slice());
+    }
+  };
+
   useWindowClickListener(({ target }) => {
     if (![board, input].some(({ current }) => current.contains(target))) {
       // unselect our current cell when outside of board clicked
@@ -79,10 +86,7 @@ export const Sudoku = () => {
 
   const inputEvents = {
     onClick: (index) => {
-      if (selected !== undefined) {
-        cells[selected].value = index + 1;
-        setCells(cells.slice());
-      }
+      handleSetValue(index + 1);
     },
   };
 
@@ -91,12 +95,15 @@ export const Sudoku = () => {
       <div ref={board}>
         <Board cells={cells} {...boardEvents} />
       </div>
-      <div ref={input} className="input">
-        <Region
-          ordinal={0}
-          cells={range(1, 9).map((x) => ({ value: x }))}
-          {...inputEvents}
-        />
+      <div ref={input} className="input-area">
+        <div className="input">
+          <Region
+            ordinal={0}
+            cells={range(1, 9).map((x) => ({ value: x }))}
+            {...inputEvents}
+          />
+        </div>
+        <button onClick={() => handleSetValue(null)}>Clear</button>
       </div>
     </div>
   );

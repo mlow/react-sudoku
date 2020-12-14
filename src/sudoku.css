@@ -11,11 +11,25 @@ body {
   display: flex;
 }
 
-.input {
-  height: 100%;
+.input-area {
   margin-left: 20px;
+  height: 100%;
   border-right: 2px solid #999;
   border-bottom: 2px solid #999;
+}
+
+.input-area > button {
+  border: 0px;
+  width: 100%;
+  background-color: #fff;
+  border-left: 3px solid #999;
+  border-right: 1px solid #999;
+  border-bottom: 1px solid #999;
+  height: 28px;
+}
+
+.input-area > button:hover {
+  background-color: #eee;
 }
 
 .input .cell {
