@@ -1,0 +1,53 @@
+body {
+  font: 14px "Century Gothic", Futura, sans-serif;
+  margin: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid #999;
+  border-left: 1px solid #999;
+  border-right: 3px solid #999;
+  border-bottom: 3px solid #999;
+}
+
+.region {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 3px solid #999;
+  border-left: 3px solid #999;
+}
+
+.cell {
+  width: 43px;
+  height: 43px;
+  background: #fff;
+  border: 0px;
+  border-right: 1px solid #999;
+  border-bottom: 1px solid #999;
+  padding: 0;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.cell:hover {
+  background: #eee;
+}
+
+.cell:focus {
+  background: #ffff55;
+  outline: none;
+}
+
+.cell.invalid {
+  color: RED;
+}
+
+.cell.valid {
+  color: GREEN;
+}
