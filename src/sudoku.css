@@ -7,6 +7,22 @@ body {
   box-sizing: border-box;
 }
 
+.game {
+  display: flex;
+}
+
+.input {
+  height: 100%;
+  margin-left: 20px;
+  border-right: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+
+.input .cell {
+  width: 34px;
+  height: 34px;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -39,8 +55,8 @@ body {
   background: #eee;
 }
 
-.cell:focus {
-  background: #ffff55;
+.board .cell:focus {
+  background: #ccd7ff;
   outline: none;
 }
 

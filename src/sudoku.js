@@ -36,6 +36,9 @@ export const Sudoku = () => {
   return (
     <div className="game">
       <Board />
+      <div className="input">
+        <Region />
+      </div>
     </div>
   );
 };
