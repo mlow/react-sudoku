@@ -4,6 +4,7 @@ import {
   rowsToRegions,
   regionsToCols,
   regionsToRows,
+  chunkRegions,
 } from "./math.js";
 
 // prettier-ignore
@@ -26,7 +27,7 @@ export function getPuzzle() {
   return rowsToRegions(puzzle);
 }
 
-export function getLegalValues(cell, cells, regions = null) {
+export function getLegalValues(cell, cells) {
   const rows = regionsToRows(cells, true);
   const cols = regionsToCols(cells, true);
   const [row, col] = rowColFromRegionIndex(cell);
@@ -34,7 +35,7 @@ export function getLegalValues(cell, cells, regions = null) {
   const filter = new Set();
   rows[row]
     .concat(cols[col])
-    .concat(regions[region])
+    .concat(chunkRegions(cells)[region])
     .forEach(({ value }) => {
       filter.add(value);
     });

@@ -1,35 +1,34 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import classNames from "classnames";
 import { chunkRegions, range } from "./math.js";
 import { getPuzzle, getLegalValues } from "./puzzle.js";
 import "./sudoku.css";
 
-const Cell = ({ onClick, cell }) => {
+const Cell = ({ onClick, index, selected, disabled, value }) => {
   return (
     <button
-      onClick={onClick}
-      disabled={cell.disabled}
+      onClick={() => onClick(index)}
+      disabled={disabled}
       className={classNames("cell", {
-        selected: cell.selected,
+        selected: index === selected,
       })}
     >
-      {cell.value}
+      {value}
     </button>
   );
 };
 
-const Region = ({ ordinal, cells, onClick = () => {} }) => (
+const Region = ({ ordinal, selected, cells, onClick }) => (
   <div className="region">
-    {cells.map((cell, i) => {
-      const cellIndex = ordinal * 9 + i;
-      return (
-        <Cell
-          key={`${ordinal}-${i}`}
-          cell={cell}
-          onClick={() => onClick(cellIndex)}
-        />
-      );
-    })}
+    {cells.map((cell, i) => (
+      <Cell
+        key={`${ordinal}-${i}`}
+        onClick={onClick}
+        index={ordinal * 9 + i}
+        selected={selected}
+        {...cell}
+      />
+    ))}
   </div>
 );
 
@@ -61,68 +60,46 @@ export const Sudoku = () => {
       disabled: !!value,
     }))
   );
-  const regions = chunkRegions(cells);
-
   const [selected, setSelected] = useState(undefined);
-  const [legalValues, setLegalValues] = useState(allInputValues);
   const board = useRef(null);
   const input = useRef(null);
+
+  const handleSelect = useCallback((index) => {
+    setSelected(index);
+  }, []);
 
   useWindowClickListener(({ target }) => {
     if (![board, input].some(({ current }) => current.contains(target))) {
       // unselect our current cell when outside of board clicked
-      handleUnselect();
+      handleSelect(undefined);
     }
   });
-
-  const handleSelect = (index) => {
-    if (selected !== undefined) handleUnselect(false);
-    cells[index].selected = true;
-    setCells(cells.slice());
-    setSelected(index);
-    setLegalValues(_getLegalValues(index));
-  };
-
-  const handleUnselect = (update = true) => {
-    if (selected === undefined) return;
-    delete cells[selected].selected;
-    if (update) setCells(cells.slice());
-    setSelected(undefined);
-    setLegalValues(allInputValues);
-  };
 
   const handleSetValue = (value) => {
     if (selected !== undefined && cells[selected].value !== value) {
       cells[selected].value = value;
       setCells(cells.slice());
-      setLegalValues(_getLegalValues(selected));
     }
   };
 
-  const _getLegalValues = (selected) => {
-    if (selected === undefined) return range(1, 9).map((value) => ({ value }));
+  const regions = chunkRegions(cells);
+  const _getLegalValues = () => {
+    if (selected === undefined) return allInputValues;
 
     const legalMoves = getLegalValues(selected, cells, regions);
-    return range(1, 9).map((x) => ({
-      value: x,
-      disabled: legalMoves.has(x),
+    return allInputValues.map(({ value }) => ({
+      value,
+      disabled: legalMoves.has(value),
     }));
   };
-
-  useWindowClickListener(({ target }) => {
-    if (![board, input].some(({ current }) => current.contains(target))) {
-      // unselect our current cell when outside of board clicked
-      handleUnselect();
-    }
-  });
 
   return (
     <div className="game">
       <div ref={board}>
-        <Board regions={regions} onClick={handleSelect} />
+        <Board regions={regions} selected={selected} onClick={handleSelect} />
       </div>
       <div ref={input}>
-        <Input cells={legalValues} onInput={handleSetValue} />
+        <Input cells={_getLegalValues()} onInput={handleSetValue} />
       </div>
     </div>
   );
