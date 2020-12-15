@@ -4,10 +4,10 @@ import {
   rowsToRegions,
   regionsToCols,
   regionsToRows,
-} from "./math";
+} from "./math.js";
 
 // prettier-ignore
-const puzzle = [
+export const puzzle = [
   null, null, null,   null,    5, null,      9,    2, null,
      1, null, null,   null,    4, null,      7,    6,    3,
      9, null,    2,   null, null,    7,   null, null,    5,

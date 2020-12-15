@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import classNames from "classnames";
-import { chunkRegions, range } from "./math";
-import { getPuzzle, getLegalValues } from "./puzzle";
+import { chunkRegions, range } from "./math.js";
+import { getPuzzle, getLegalValues } from "./puzzle.js";
 import "./sudoku.css";
 
 const Cell = ({ onClick, cell }) => {
