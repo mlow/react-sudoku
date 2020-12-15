@@ -1,34 +1,35 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import classNames from "classnames";
 import { chunkRegions, range } from "./math.js";
 import { getPuzzle, getLegalValues } from "./puzzle.js";
 import "./sudoku.css";
 
-const Cell = ({ onClick, index, selected, disabled, value }) => {
-  return (
-    <button
-      onClick={() => onClick(index)}
-      disabled={disabled}
-      className={classNames("cell", {
-        selected: index === selected,
-      })}
-    >
-      {value}
-    </button>
-  );
-};
+const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
+  <button
+    onClick={() => onClick(index)}
+    disabled={disabled}
+    className={classNames("cell", {
+      selected: !!selected,
+    })}
+  >
+    {value}
+  </button>
+));
 
 const Region = ({ ordinal, selected, cells, onClick }) => (
   <div className="region">
-    {cells.map((cell, i) => (
-      <Cell
-        key={`${ordinal}-${i}`}
-        onClick={onClick}
-        index={ordinal * 9 + i}
-        selected={selected}
-        {...cell}
-      />
-    ))}
+    {cells.map((cell, i) => {
+      const index = ordinal * 9 + i;
+      return (
+        <Cell
+          key={`${ordinal}-${i}`}
+          onClick={onClick}
+          index={index}
+          selected={index === selected}
+          {...cell}
+        />
+      );
+    })}
   </div>
 );
 
@@ -40,18 +41,16 @@ const Board = (props) => (
   </div>
 );
 
-const Input = ({ cells, onInput }) => {
-  return (
-    <div className="input-area">
-      <div className="input">
-        <Region ordinal={0} cells={cells} onClick={(i) => onInput(i + 1)} />
-      </div>
-      <button onClick={() => onInput(null)}>Erase</button>
+const Input = ({ cells, onInput }) => (
+  <div className="input-area">
+    <div className="input">
+      <Region ordinal={0} cells={cells} onClick={(i) => onInput(i + 1)} />
     </div>
-  );
-};
+    <button onClick={() => onInput(null)}>Erase</button>
+  </div>
+);
 
-const allInputValues = range(1, 9).map((value) => ({ value }));
+const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 
 export const Sudoku = () => {
   const [cells, setCells] = useState(
@@ -64,14 +63,10 @@ export const Sudoku = () => {
   const board = useRef(null);
   const input = useRef(null);
 
-  const handleSelect = useCallback((index) => {
-    setSelected(index);
-  }, []);
-
   useWindowClickListener(({ target }) => {
     if (![board, input].some(({ current }) => current.contains(target))) {
       // unselect our current cell when outside of board clicked
-      handleSelect(undefined);
+      setSelected(undefined);
     }
   });
 
@@ -84,10 +79,10 @@ export const Sudoku = () => {
 
   const regions = chunkRegions(cells);
   const _getLegalValues = () => {
-    if (selected === undefined) return allInputValues;
+    if (selected === undefined) return ALL_VALUES;
 
     const legalMoves = getLegalValues(selected, cells, regions);
-    return allInputValues.map(({ value }) => ({
+    return ALL_VALUES.map(({ value }) => ({
       value,
       disabled: legalMoves.has(value),
     }));
@@ -96,7 +91,7 @@ export const Sudoku = () => {
   return (
     <div className="game">
       <div ref={board}>
-        <Board regions={regions} selected={selected} onClick={handleSelect} />
+        <Board regions={regions} selected={selected} onClick={setSelected} />
       </div>
       <div ref={input}>
         <Input cells={_getLegalValues()} onInput={handleSetValue} />
