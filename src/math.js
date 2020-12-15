@@ -2,48 +2,107 @@ let REGION_WIDTH = 3;
 let REGION_HEIGHT = 3;
 let BOARD_WIDTH = 3;
 let BOARD_HEIGHT = 3;
+let CELLS_WIDTH = REGION_WIDTH * BOARD_WIDTH;
+let CELLS_HEIGHT = REGION_HEIGHT * BOARD_HEIGHT;
+let BOARD_CELLS = CELLS_WIDTH * CELLS_HEIGHT;
 let REGION_CELLS = REGION_WIDTH * REGION_HEIGHT;
 
-const getRowOffset = (row) =>
-  Math.trunc(row / REGION_HEIGHT) * BOARD_WIDTH * REGION_CELLS +
-  (row % REGION_HEIGHT) * REGION_WIDTH;
-
-const getColOffset = (col) =>
-  Math.trunc(col / REGION_WIDTH) * REGION_CELLS + (col % REGION_WIDTH);
-
-// colOffset and rowOffset caches
-const rowOffsets = Array(REGION_HEIGHT * BOARD_HEIGHT)
-  .fill()
-  .map((_, row) => getRowOffset(row));
-
-const colOffsets = Array(REGION_WIDTH * REGION_HEIGHT)
-  .fill()
-  .map((_, col) => getColOffset(col));
-
-const getOffset = (row, col) => rowOffsets[row] + colOffsets[col];
-
-export function splitIntoRows(cells) {
-  const rows = Array(REGION_HEIGHT * BOARD_HEIGHT).fill([]);
-  rows.forEach((row, rowIndex) => {
-    for (let col = 0; col < REGION_WIDTH * BOARD_WIDTH; col++)
-      row[col] = cells[getOffset(row, col)];
-  });
-  return rows;
+export function chunkify(arr, chunkSize) {
+  const chunks = Array(arr.length / chunkSize);
+  for (let i = 0, len = chunks.length; i < len; i++) {
+    const start = i * chunkSize;
+    chunks[i] = arr.slice(start, start + chunkSize);
+  }
+  return chunks;
 }
 
-export function splitIntoCols(cells) {
-  const cols = Array(REGION_HEIGHT * BOARD_HEIGHT).fill([]);
-  cols.forEach((col, colIndex) => {
-    for (let row = 0; row < REGION_HEIGHT * BOARD_HEIGHT; row++)
-      col[row] = cells[getOffset(row, col)];
-  });
-  return cols;
-}
-
-export function splitIntoRegions(cells) {
-  return Array(BOARD_HEIGHT * BOARD_WIDTH)
+export function range(start, end) {
+  return Array(1 + end - start)
     .fill()
-    .map((_, index) =>
-      cells.slice(index * REGION_CELLS, index * REGION_CELLS + REGION_CELLS)
-    );
+    .map((_, i) => start + i);
+}
+
+export function regionFromRegionIndex(index) {
+  return Math.trunc(index / REGION_CELLS);
+}
+
+export function rowColFromRegionIndex(index) {
+  const region = regionFromRegionIndex(index);
+  const cell = index % REGION_CELLS;
+  const regionRow = Math.trunc(region / BOARD_WIDTH);
+  const regionCol = region % BOARD_WIDTH;
+  const cellRow = Math.trunc(cell / REGION_WIDTH);
+  const cellCol = cell % REGION_WIDTH;
+  return [
+    regionRow * REGION_WIDTH + cellRow,
+    regionCol * REGION_HEIGHT + cellCol,
+  ];
+}
+
+const _rowIndexToRegionIndex = Array(BOARD_CELLS);
+const _regionIndexToRowIndex = Array(BOARD_CELLS)
+  .fill()
+  .map((_, regionIndex) => {
+    const [row, col] = rowColFromRegionIndex(regionIndex);
+    const rowIndex = row * CELLS_WIDTH + col;
+    _rowIndexToRegionIndex[rowIndex] = regionIndex;
+    return rowIndex;
+  });
+
+const _regionIndexToColIndex = Array(BOARD_CELLS);
+const _colIndexToRegionIndex = Array(BOARD_CELLS)
+  .fill()
+  .map((_, columnIndex) => {
+    const [row, col] = rowColFromRegionIndex(columnIndex);
+    const regionIndex = col * CELLS_HEIGHT + row;
+    _regionIndexToColIndex[regionIndex] = columnIndex;
+    return regionIndex;
+  });
+
+export function regionIndexToRowIndex(index) {
+  return _regionIndexToRowIndex[index];
+}
+
+export function rowIndexToRegionIndex(index) {
+  return _rowIndexToRegionIndex[index];
+}
+
+export function regionIndexToColIndex(index) {
+  return _regionIndexToColIndex[index];
+}
+
+export function colIndexToRegionIndex(index) {
+  return _colIndexToRegionIndex[index];
+}
+
+function mapArray(array, indexes) {
+  const newArr = Array(indexes.length);
+  for (let i = 0, len = array.length; i < len; i++) {
+    newArr[i] = array[indexes[i]];
+  }
+  return newArr;
+}
+
+export function chunkRegions(cells) {
+  return chunkify(cells, REGION_CELLS);
+}
+
+export function regionsToRows(cells, split = false) {
+  const rows = mapArray(cells, _regionIndexToRowIndex);
+  return split ? chunkify(rows, CELLS_WIDTH) : rows;
+}
+
+export function regionsToCols(cells, split = false) {
+  const cols = mapArray(cells, _regionIndexToColIndex);
+  return split ? chunkify(cols, CELLS_HEIGHT) : cols;
+}
+
+export function rowsToRegions(cells, split = false) {
+  const regions = mapArray(cells, _rowIndexToRegionIndex);
+  return split ? chunkify(regions, REGION_CELLS) : regions;
+}
+
+export function colsToRegions(cells, split = false) {
+  const regions = mapArray(cells, _colIndexToRegionIndex);
+  return split ? chunkify(regions, REGION_CELLS) : regions;
 }

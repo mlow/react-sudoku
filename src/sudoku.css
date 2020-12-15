@@ -28,7 +28,7 @@ body {
   height: 28px;
 }
 
-.input-area > button:hover {
+.input-area > button:hover:enabled {
   background-color: #eee;
 }
 
@@ -69,12 +69,12 @@ body {
   font-weight: bold;
 }
 
-.cell:hover {
+.cell:hover:enabled {
   background: #eee;
 }
 
 .cell.selected {
-  background: #ccd7ff;
+  background: #ccd7ff !important;
 }
 
 .cell:focus {
