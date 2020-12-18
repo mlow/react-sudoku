@@ -156,15 +156,15 @@ export const Sudoku = () => {
         <Input cells={getInputCells()} onInput={handleSetValue} />
         <button onClick={handleReset}>Reset</button>
         <button onClick={handleSolve}>Solve</button>
-        <div>
+        <label>
           <input
             type="checkbox"
             name="hints"
             checked={showHints}
             onChange={handleShowHintCheckbox}
-          ></input>
-          <label htmlFor="hints"> Hints?</label>
-        </div>
+          />
+          Hints?
+        </label>
       </div>
     </div>
   );
