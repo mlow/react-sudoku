@@ -55,6 +55,23 @@ const Input = ({ cells, onInput }) => (
   </div>
 );
 
+function formatElapsedMilliseconds(ms) {
+  const hours = String(Math.floor(ms / (3600 * 1000))).padStart(2, "0");
+  const minutes = String(Math.floor((ms / (60 * 1000)) % 60)).padStart(2, "0");
+  const seconds = String(Math.floor((ms / 1000) % 60)).padStart(2, "0");
+  const deciseconds = String(Math.floor(ms / 100) % 10);
+  return `${hours}:${minutes}:${seconds}.${deciseconds}`;
+}
+
+const Timer = ({ start }) => {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed(Date.now() - start), 50);
+    return () => clearInterval(timer);
+  }, [start]);
+  return <span className="timer">{formatElapsedMilliseconds(elapsed)}</span>;
+};
+
 const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 
 const DIFFICULTY_CLUES = [38, 30, 25, 23];
@@ -72,6 +89,7 @@ export const Sudoku = () => {
   const [cells, setCells] = useState(() => generate(difficulty));
   const [selected, setSelected] = useState(undefined);
   const [showHints, setShowHints] = useState(false);
+  const [timerStart, setTimerStart] = useState(() => Date.now());
   const board = useRef(null);
   const input = useRef(null);
 
@@ -115,10 +133,15 @@ export const Sudoku = () => {
     }
   }
 
+  function _regenerate() {
+    setCells(generate(difficulty));
+    setSelected(undefined);
+    setTimerStart(Date.now());
+  }
+
   function handleRegenerate() {
     if (window.confirm("Are you sure you want to regenerate the puzzle?")) {
-      setCells(generate(difficulty));
-      setSelected(undefined);
+      _regenerate();
     }
   }
 
@@ -165,6 +188,7 @@ export const Sudoku = () => {
           />
           Hints?
         </label>
+        <Timer start={timerStart} />
       </div>
     </div>
   );
