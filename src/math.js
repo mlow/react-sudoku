@@ -22,11 +22,11 @@ export function range(start, end) {
     .map((_, i) => start + i);
 }
 
-export function regionFromRegionIndex(index) {
+function _regionFromRegionIndex(index) {
   return Math.trunc(index / REGION_CELLS);
 }
 
-export function rowColFromRegionIndex(index) {
+function _rowColFromRegionIndex(index) {
   const region = regionFromRegionIndex(index);
   const cell = index % REGION_CELLS;
   const regionRow = Math.trunc(region / BOARD_WIDTH);
@@ -37,6 +37,26 @@ export function rowColFromRegionIndex(index) {
     regionRow * REGION_WIDTH + cellRow,
     regionCol * REGION_HEIGHT + cellCol,
   ];
+}
+
+const _rowsFromIndex = Array(BOARD_CELLS);
+const _colsFromIndex = Array(BOARD_CELLS);
+const _regionsFromIndex = Array(BOARD_CELLS);
+Array(BOARD_CELLS)
+  .fill()
+  .forEach((_, i) => {
+    _regionsFromIndex[i] = _regionFromRegionIndex(i);
+    const [row, col] = _rowColFromRegionIndex(i);
+    _rowsFromIndex[i] = row;
+    _colsFromIndex[i] = col;
+  });
+
+export function rowColFromRegionIndex(i) {
+  return [_rowsFromIndex[i], _colsFromIndex[i]];
+}
+
+export function regionFromRegionIndex(i) {
+  return _regionsFromIndex[i];
 }
 
 const _rowIndexToRegionIndex = Array(BOARD_CELLS);

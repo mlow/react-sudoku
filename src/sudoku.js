@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import classNames from "classnames";
 import { chunkRegions, range } from "./math.js";
-import { getPuzzle, getLegalValues } from "./puzzle.js";
+import { generatePuzzle, getTakenValues } from "./puzzle.js";
 import "./sudoku.css";
 
 const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
@@ -52,9 +52,17 @@ const Input = ({ cells, onInput }) => (
 
 const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 
+const DIFFICULTIES = {
+  easy: 38,
+  medium: 30,
+  hard: 25,
+  expert: 23,
+};
+
 export const Sudoku = () => {
-  const [cells, setCells] = useState(
-    getPuzzle().map((value) => ({
+  const [difficulty] = useState(DIFFICULTIES.easy);
+  const [cells, setCells] = useState(() =>
+    generatePuzzle(difficulty).map(({ value }) => ({
       value,
       disabled: !!value,
     }))
@@ -78,13 +86,13 @@ export const Sudoku = () => {
   };
 
   const regions = chunkRegions(cells);
-  const _getLegalValues = () => {
+  const getInputCells = () => {
     if (selected === undefined) return ALL_VALUES;
 
-    const legalMoves = getLegalValues(selected, cells, regions);
+    const takenValues = getTakenValues(selected, cells, regions);
     return ALL_VALUES.map(({ value }) => ({
       value,
-      disabled: legalMoves.has(value),
+      disabled: takenValues.has(value),
     }));
   };
 
@@ -94,7 +102,7 @@ export const Sudoku = () => {
         <Board regions={regions} selected={selected} onClick={setSelected} />
       </div>
       <div ref={input}>
-        <Input cells={_getLegalValues()} onInput={handleSetValue} />
+        <Input cells={getInputCells()} onInput={handleSetValue} />
       </div>
     </div>
   );
