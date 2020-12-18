@@ -52,22 +52,21 @@ const Input = ({ cells, onInput }) => (
 
 const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 
-const DIFFICULTIES = {
-  easy: 38,
-  medium: 30,
-  hard: 25,
-  expert: 23,
-};
+const DIFFICULTY_CLUES = [38, 30, 25, 23];
+const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
+
+function generate(difficulty) {
+  return generatePuzzle(DIFFICULTY_CLUES[difficulty]).map(({ value }) => ({
+    value,
+    disabled: !!value,
+  }));
+}
 
 export const Sudoku = () => {
-  const [difficulty] = useState(DIFFICULTIES.easy);
-  const [cells, setCells] = useState(() =>
-    generatePuzzle(difficulty).map(({ value }) => ({
-      value,
-      disabled: !!value,
-    }))
-  );
+  const [difficulty, setDifficulty] = useState(1);
+  const [cells, setCells] = useState(() => generate(difficulty));
   const [selected, setSelected] = useState(undefined);
+  const [showHints, setShowHints] = useState(false);
   const board = useRef(null);
   const input = useRef(null);
 
@@ -87,7 +86,7 @@ export const Sudoku = () => {
 
   const regions = chunkRegions(cells);
   const getInputCells = () => {
-    if (selected === undefined) return ALL_VALUES;
+    if (selected === undefined || !showHints) return ALL_VALUES;
 
     const takenValues = getTakenValues(selected, cells, regions);
     return ALL_VALUES.map(({ value }) => ({
@@ -96,13 +95,61 @@ export const Sudoku = () => {
     }));
   };
 
+  const handleDifficultySelect = (e) => {
+    setDifficulty(parseInt(e.target.value));
+  };
+
+  function handleReset() {
+    if (window.confirm("Are you sure you want to reset the puzzle?")) {
+      setCells(
+        cells.map(({ value, disabled }) => ({
+          value: disabled ? value : null,
+          disabled,
+        }))
+      );
+    }
+  }
+
+  function handleRegenerate() {
+    if (window.confirm("Are you sure you want to regenerate the puzzle?")) {
+      setCells(generate(difficulty));
+      setSelected(undefined);
+    }
+  }
+
+  function handleShowHintCheckbox() {
+    setShowHints(!showHints);
+  }
+
   return (
     <div className="game">
       <div ref={board}>
         <Board regions={regions} selected={selected} onClick={setSelected} />
       </div>
-      <div ref={input}>
+      <div className="settings" ref={input}>
+        <select
+          className="setting"
+          defaultValue={difficulty}
+          onChange={handleDifficultySelect}
+        >
+          {DIFFICULTIES.map((name, i) => (
+            <option key={i} value={i}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <button onClick={handleRegenerate}>Regenerate</button>
         <Input cells={getInputCells()} onInput={handleSetValue} />
+        <button onClick={handleReset}>Reset</button>
+        <div>
+          <input
+            type="checkbox"
+            name="hints"
+            checked={showHints}
+            onChange={handleShowHintCheckbox}
+          ></input>
+          <label for="hints"> Hints?</label>
+        </div>
       </div>
     </div>
   );
