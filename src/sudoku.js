@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import classNames from "classnames";
 import { chunkRegions, range } from "./math.js";
-import { generatePuzzle, getTakenValues } from "./puzzle.js";
+import {
+  completeSolver,
+  generatePuzzle,
+  getTakenValues,
+  optimisticSolver,
+} from "./puzzle.js";
 import "./sudoku.css";
 
 const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
@@ -117,6 +122,15 @@ export const Sudoku = () => {
     }
   }
 
+  function handleSolve() {
+    if (window.confirm("Are you sure you want the puzzle to be solved?")) {
+      if (!optimisticSolver(cells)) {
+        completeSolver(cells);
+      }
+      setCells(cells.map((cell) => cell));
+    }
+  }
+
   function handleShowHintCheckbox() {
     setShowHints(!showHints);
   }
@@ -141,6 +155,7 @@ export const Sudoku = () => {
         <button onClick={handleRegenerate}>Regenerate</button>
         <Input cells={getInputCells()} onInput={handleSetValue} />
         <button onClick={handleReset}>Reset</button>
+        <button onClick={handleSolve}>Solve</button>
         <div>
           <input
             type="checkbox"
@@ -148,7 +163,7 @@ export const Sudoku = () => {
             checked={showHints}
             onChange={handleShowHintCheckbox}
           ></input>
-          <label for="hints"> Hints?</label>
+          <label htmlFor="hints"> Hints?</label>
         </div>
       </div>
     </div>
