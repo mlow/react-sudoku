@@ -1,15 +1,7 @@
-import {
-  rowColFromRegionIndex,
-  regionFromRegionIndex,
-  regionsToCols,
-  regionsToRows,
-  chunkRegions,
-  range,
-} from "./math.js";
 import { shuffle } from "lodash";
 
-const getBlankPuzzle = () =>
-  Array(81)
+const getBlankPuzzle = (sudokuMath) =>
+  Array(sudokuMath.boardCells)
     .fill(null)
     .map((value) => ({ value }));
 
@@ -34,39 +26,41 @@ function _getTakenValues(region, row, col, valueKeys = ["value"]) {
   return filter;
 }
 
-const values = range(1, 9);
-
-function getLegalValues(taken) {
-  return values.filter((value) => !taken.has(value));
+function getLegalValues(sudokuMath, taken) {
+  return sudokuMath.legalValues.filter((value) => !taken.has(value));
 }
 
-export function getTakenValues(cell, cells, regions) {
-  const rows = regionsToRows(cells, true);
-  const cols = regionsToCols(cells, true);
-  const [row, col] = rowColFromRegionIndex(cell);
-  const region = regionFromRegionIndex(cell);
+export function getTakenValues(sudokuMath, cell, cells, regions) {
+  const rows = sudokuMath.regionsToRows(cells, true);
+  const cols = sudokuMath.regionsToCols(cells, true);
+  const [row, col] = sudokuMath.rowColFromRegionIndex(cell);
+  const region = sudokuMath.regionFromRegionIndex(cell);
   return _getTakenValues(regions[region], rows[row], cols[col]);
 }
 
 /**
  * Returns whether a puzzle can only be solved one way.
+ *
+ * @param {SudokuMath} sudokuMath a SudokuMath instance
  * @param {[T]} puzzle
  */
-export function hasOneSolution(puzzle) {
+export function hasOneSolution(sudokuMath, puzzle) {
   const optimistic = clone(puzzle);
-  if (optimisticSolver(optimistic)) {
+  if (optimisticSolver(sudokuMath, optimistic)) {
     return true;
   }
-  return backTrackingSolver(optimistic) === 1;
+  return backTrackingSolver(sudokuMath, optimistic) === 1;
 }
 
 /**
  * Generates a single-solution sudoku puzzle.
+ *
+ * @param {SudokuMath} sudokuMath a SudokuMath instance
  * @param {Integer} clues the number of cells to have pre-filled
  */
-export function generatePuzzle(clues) {
-  const puzzle = getBlankPuzzle();
-  completeSolver(puzzle, shuffle);
+export function generatePuzzle(sudokuMath, clues) {
+  const puzzle = getBlankPuzzle(sudokuMath);
+  completeSolver(sudokuMath, puzzle, shuffle);
   const orig = clone(puzzle);
 
   const toRemove = puzzle.length - clues;
@@ -87,7 +81,7 @@ export function generatePuzzle(clues) {
 
   function removeCell(check = true) {
     remove();
-    if (hasOneSolution(puzzle)) {
+    if (hasOneSolution(sudokuMath, puzzle)) {
       return true;
     }
     replace();
@@ -120,14 +114,15 @@ export function generatePuzzle(clues) {
  *
  * Useful as a first pass.
  *
+ * @param {SudokuMath} sudokuMath a SudokuMath instance
  * @param {*} puzzle a region-ordered array of cells (each cell an object with
  *   a `value` key.
  * @returns whether the puzzle was completely solved
  */
-export function optimisticSolver(puzzle) {
-  const regions = chunkRegions(puzzle);
-  const rows = regionsToRows(puzzle, true);
-  const cols = regionsToCols(puzzle, true);
+export function optimisticSolver(sudokuMath, puzzle) {
+  const regions = sudokuMath.chunkRegions(puzzle);
+  const rows = sudokuMath.regionsToRows(puzzle, true);
+  const cols = sudokuMath.regionsToCols(puzzle, true);
 
   function solve() {
     let foundValue = false;
@@ -137,11 +132,11 @@ export function optimisticSolver(puzzle) {
       const cell = puzzle[i];
       if (!!cell.value) continue;
       foundEmpty = true;
-      const region = regionFromRegionIndex(i);
-      const [row, col] = rowColFromRegionIndex(i);
+      const region = sudokuMath.regionFromRegionIndex(i);
+      const [row, col] = sudokuMath.rowColFromRegionIndex(i);
       const taken = _getTakenValues(regions[region], rows[row], cols[col]);
-      if (taken.size === 8) {
-        cell.value = getLegalValues(taken)[0];
+      if (taken.size === sudokuMath.regionCells - 1) {
+        cell.value = getLegalValues(sudokuMath, taken)[0];
         foundValue = true;
       }
     }
@@ -155,17 +150,23 @@ export function optimisticSolver(puzzle) {
  * Attempt to completely solve a puzzle. Can also be used to generate a full
  * puzzle. Less efficient than backtracking solver at finding solutions, but
  * more efficient if you only want *one* solution.
+ *
+ * @param {SudokuMath} sudokuMath a SudokuMath instance
  * @param {[T]} puzzle see optimisticSolver
  * @param {Function} guessStrategy a function which takes an array of possible
  *  values for a cell as an argument, and either re-orders/shuffles them, or
  *  returns the array unmodified.
  *
  */
-export function completeSolver(puzzle, guessStrategy = (val) => val) {
+export function completeSolver(
+  sudokuMath,
+  puzzle,
+  guessStrategy = (values) => values
+) {
   const takenKeys = ["value", "guess"];
-  const regions = chunkRegions(puzzle);
-  const rows = regionsToRows(puzzle, true);
-  const cols = regionsToCols(puzzle, true);
+  const regions = sudokuMath.chunkRegions(puzzle);
+  const rows = sudokuMath.regionsToRows(puzzle, true);
+  const cols = sudokuMath.regionsToCols(puzzle, true);
 
   function solve(i) {
     if (i === puzzle.length) {
@@ -175,8 +176,8 @@ export function completeSolver(puzzle, guessStrategy = (val) => val) {
     const cell = puzzle[i];
     if (!!cell.value) return solve(i + 1);
 
-    const region = regionFromRegionIndex(i);
-    const [row, col] = rowColFromRegionIndex(i);
+    const region = sudokuMath.regionFromRegionIndex(i);
+    const [row, col] = sudokuMath.rowColFromRegionIndex(i);
     const taken = _getTakenValues(
       regions[region],
       rows[row],
@@ -185,9 +186,9 @@ export function completeSolver(puzzle, guessStrategy = (val) => val) {
     );
 
     // no available values, give up this branch
-    if (taken.size === 9) return false;
+    if (taken.size === sudokuMath.regionCells) return false;
 
-    const avail = guessStrategy(getLegalValues(taken));
+    const avail = guessStrategy(getLegalValues(sudokuMath, taken));
     for (const guess of avail) {
       // clear all guesses after i
       for (let j = i + 1; j < puzzle.length; j++) {
@@ -220,23 +221,25 @@ export function completeSolver(puzzle, guessStrategy = (val) => val) {
 /**
  * Backtracking solver. Mutates the puzzle during solve but eventually returns
  * it to its initial state.
+ *
+ * @param {SudokuMath} sudokuMath a SudokuMath instance
  * @param {[T]} puzzle see optimisticSolver
  * @returns the number of solutions found
  */
-export function backTrackingSolver(puzzle) {
-  const regions = chunkRegions(puzzle);
-  const rows = regionsToRows(puzzle, true);
-  const cols = regionsToCols(puzzle, true);
+export function backTrackingSolver(sudokuMath, puzzle) {
+  const regions = sudokuMath.chunkRegions(puzzle);
+  const rows = sudokuMath.regionsToRows(puzzle, true);
+  const cols = sudokuMath.regionsToCols(puzzle, true);
 
   let solutions = 0;
   function solve() {
     for (let i = 0, len = puzzle.length; i < len; i++) {
       const cell = puzzle[i];
       if (!cell.value) {
-        const region = regionFromRegionIndex(i);
-        const [row, col] = rowColFromRegionIndex(i);
+        const region = sudokuMath.regionFromRegionIndex(i);
+        const [row, col] = sudokuMath.rowColFromRegionIndex(i);
         const taken = _getTakenValues(regions[region], rows[row], cols[col]);
-        const avail = getLegalValues(taken);
+        const avail = getLegalValues(sudokuMath, taken);
         for (let j = 0; j < avail.length; j++) {
           cell.value = avail[j];
           solve();

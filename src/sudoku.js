@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import classNames from "classnames";
-import { chunkRegions, range } from "./math.js";
+import { range, SudokuMath } from "./math.js";
 import {
   completeSolver,
   generatePuzzle,
@@ -77,16 +77,24 @@ const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 const DIFFICULTY_CLUES = [38, 30, 25, 23];
 const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
 
-function generate(difficulty) {
-  return generatePuzzle(DIFFICULTY_CLUES[difficulty]).map(({ value }) => ({
-    value,
-    disabled: !!value,
-  }));
+function generate(sudokuMath, difficulty) {
+  return generatePuzzle(sudokuMath, DIFFICULTY_CLUES[difficulty]).map(
+    ({ value }) => ({
+      value,
+      disabled: !!value,
+    })
+  );
 }
 
 export const Sudoku = () => {
   const [difficulty, setDifficulty] = useState(1);
-  const [cells, setCells] = useState(() => generate(difficulty));
+  const [regionWidth, setRegionWidth] = useState(3);
+  const [regionHeight, setRegionHeight] = useState(3);
+  const sudokuMath = useMemo(() => new SudokuMath(regionWidth, regionHeight), [
+    regionWidth,
+    regionHeight,
+  ]);
+  const [cells, setCells] = useState(() => generate(sudokuMath, difficulty));
   const [selected, setSelected] = useState(undefined);
   const [showHints, setShowHints] = useState(false);
   const [timerStart, setTimerStart] = useState(() => Date.now());
@@ -107,20 +115,28 @@ export const Sudoku = () => {
     }
   };
 
-  const regions = chunkRegions(cells);
+  const regions = sudokuMath.chunkRegions(cells);
   const getInputCells = () => {
     if (selected === undefined || !showHints) return ALL_VALUES;
 
-    const takenValues = getTakenValues(selected, cells, regions);
+    const takenValues = getTakenValues(sudokuMath, selected, cells, regions);
     return ALL_VALUES.map(({ value }) => ({
       value,
       disabled: takenValues.has(value),
     }));
   };
 
-  const handleDifficultySelect = (e) => {
+  function handleRegionWidthChange(newWidth) {
+    setRegionWidth(newWidth);
+  }
+
+  function handleRegionHeightChange(newHeight) {
+    setRegionHeight(newHeight);
+  }
+
+  function handleDifficultySelect(e) {
     setDifficulty(parseInt(e.target.value));
-  };
+  }
 
   function handleReset() {
     if (window.confirm("Are you sure you want to reset the puzzle?")) {
@@ -134,7 +150,7 @@ export const Sudoku = () => {
   }
 
   function _regenerate() {
-    setCells(generate(difficulty));
+    setCells(generate(sudokuMath, difficulty));
     setSelected(undefined);
     setTimerStart(Date.now());
   }
@@ -147,8 +163,8 @@ export const Sudoku = () => {
 
   function handleSolve() {
     if (window.confirm("Are you sure you want the puzzle to be solved?")) {
-      if (!optimisticSolver(cells)) {
-        completeSolver(cells);
+      if (!optimisticSolver(sudokuMath, cells)) {
+        completeSolver(sudokuMath, cells);
       }
       setCells(cells.map((cell) => cell));
     }
