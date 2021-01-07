@@ -61,6 +61,9 @@ export function hasOneSolution(sudokuMath, puzzle) {
 export function generatePuzzle(sudokuMath, clues) {
   const puzzle = getBlankPuzzle(sudokuMath);
   completeSolver(sudokuMath, puzzle, shuffle);
+
+  if (clues >= puzzle.length) return puzzle;
+
   const orig = clone(puzzle);
 
   const toRemove = puzzle.length - clues;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import classNames from "classnames";
-import { range, SudokuMath } from "./math.js";
+import { SudokuMath } from "./math.js";
 import {
   completeSolver,
   generatePuzzle,
@@ -8,6 +8,15 @@ import {
   optimisticSolver,
 } from "./puzzle.js";
 import "./sudoku.css";
+
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function renderedValue(value) {
+  if (value < 10) {
+    return value;
+  } else {
+    return letters[value - 10];
+  }
+}
 
 const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
   <button
@@ -17,12 +26,18 @@ const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
       selected: !!selected,
     })}
   >
-    {value}
+    {renderedValue(value)}
   </button>
 ));
 
-const Region = ({ ordinal, selected, cells, onClick }) => (
-  <div className="region">
+function getColumnStyle(colCount) {
+  return {
+    gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+  };
+}
+
+const Region = ({ regionWidth, ordinal, selected, cells, onClick }) => (
+  <div className="region" style={getColumnStyle(regionWidth)}>
     {cells.map((cell, i) => {
       const index = ordinal * 9 + i;
       return (
@@ -39,17 +54,22 @@ const Region = ({ ordinal, selected, cells, onClick }) => (
 );
 
 const Board = (props) => (
-  <div className="board">
+  <div className="board" style={getColumnStyle(props.regionHeight)}>
     {props.regions.map((region, i) => (
       <Region {...props} key={i} ordinal={i} cells={region} />
     ))}
   </div>
 );
 
-const Input = ({ cells, onInput }) => (
+const Input = ({ regionWidth, cells, onInput }) => (
   <div className="input-area">
     <div className="input">
-      <Region ordinal={0} cells={cells} onClick={(i) => onInput(i + 1)} />
+      <Region
+        ordinal={0}
+        regionWidth={regionWidth}
+        cells={cells}
+        onClick={(i) => onInput(i + 1)}
+      />
     </div>
     <button onClick={() => onInput(null)}>Erase</button>
   </div>
@@ -71,8 +91,6 @@ const Timer = ({ start }) => {
   }, [start]);
   return <span className="timer">{formatElapsedMilliseconds(elapsed)}</span>;
 };
-
-const ALL_VALUES = range(1, 9).map((value) => ({ value }));
 
 const DIFFICULTY_CLUES = [38, 30, 25, 23];
 const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
@@ -117,10 +135,11 @@ export const Sudoku = () => {
 
   const regions = sudokuMath.chunkRegions(cells);
   const getInputCells = () => {
-    if (selected === undefined || !showHints) return ALL_VALUES;
+    if (selected === undefined || !showHints)
+      return sudokuMath.legalValues.map((value) => ({ value }));
 
     const takenValues = getTakenValues(sudokuMath, selected, cells, regions);
-    return ALL_VALUES.map(({ value }) => ({
+    return sudokuMath.legalValues.map((value) => ({
       value,
       disabled: takenValues.has(value),
     }));
@@ -177,7 +196,13 @@ export const Sudoku = () => {
   return (
     <div className="game">
       <div ref={board}>
-        <Board regions={regions} selected={selected} onClick={setSelected} />
+        <Board
+          regions={regions}
+          regionWidth={regionWidth}
+          regionHeight={regionHeight}
+          selected={selected}
+          onClick={setSelected}
+        />
       </div>
       <div className="settings" ref={input}>
         <select
@@ -192,7 +217,11 @@ export const Sudoku = () => {
           ))}
         </select>
         <button onClick={handleRegenerate}>Regenerate</button>
-        <Input cells={getInputCells()} onInput={handleSetValue} />
+        <Input
+          regionWidth={regionWidth}
+          cells={getInputCells()}
+          onInput={handleSetValue}
+        />
         <button onClick={handleReset}>Reset</button>
         <button onClick={handleSolve}>Solve</button>
         <label>
