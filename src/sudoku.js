@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import classNames from "classnames";
 import { SudokuMath } from "./math.js";
-import {
-  completeSolver,
-  generatePuzzle,
-  getTakenValues,
-  optimisticSolver,
-} from "./puzzle.js";
 import "./sudoku.css";
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -96,12 +90,12 @@ const DIFFICULTY_CLUES = [38, 30, 25, 23];
 const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
 
 function generate(sudokuMath, difficulty) {
-  return generatePuzzle(sudokuMath, DIFFICULTY_CLUES[difficulty]).map(
-    ({ value }) => ({
+  return sudokuMath
+    .generatePuzzle(DIFFICULTY_CLUES[difficulty])
+    .map(({ value }) => ({
       value,
       disabled: !!value,
-    })
-  );
+    }));
 }
 
 export const Sudoku = () => {
@@ -112,6 +106,7 @@ export const Sudoku = () => {
     regionWidth,
     regionHeight,
   ]);
+  console.log(sudokuMath);
   const [cells, setCells] = useState(() => generate(sudokuMath, difficulty));
   const [selected, setSelected] = useState(undefined);
   const [showHints, setShowHints] = useState(false);
@@ -138,7 +133,7 @@ export const Sudoku = () => {
     if (selected === undefined || !showHints)
       return sudokuMath.legalValues.map((value) => ({ value }));
 
-    const takenValues = getTakenValues(sudokuMath, selected, cells, regions);
+    const takenValues = sudokuMath.getTakenValues(selected, cells, regions);
     return sudokuMath.legalValues.map((value) => ({
       value,
       disabled: takenValues.has(value),
@@ -182,8 +177,8 @@ export const Sudoku = () => {
 
   function handleSolve() {
     if (window.confirm("Are you sure you want the puzzle to be solved?")) {
-      if (!optimisticSolver(sudokuMath, cells)) {
-        completeSolver(sudokuMath, cells);
+      if (!sudokuMath.optimisticSolver(cells)) {
+        sudokuMath.completeSolver(cells);
       }
       setCells(cells.map((cell) => cell));
     }
