@@ -1,4 +1,23 @@
-const { shuffle } = require("lodash");
+function randInt(lower, upper) {
+  return lower + Math.trunc(Math.random() * (upper - lower + 1));
+}
+
+function shuffle(array, size) {
+  let index = -1,
+    length = array.length,
+    lastIndex = length - 1;
+
+  size = size === undefined ? length : size;
+  while (++index < size) {
+    var rand = randInt(index, lastIndex),
+      value = array[rand];
+
+    array[rand] = array[index];
+    array[index] = value;
+  }
+  array.length = size;
+  return array;
+}
 
 export function chunkify(arr, chunkSize) {
   const chunks = Array(arr.length / chunkSize);
@@ -29,18 +48,16 @@ export function clone(puzz) {
 
 function addCellValuesToSet(set, cells, valueKeys) {
   cells.forEach((cell) => {
-    valueKeys.forEach((key) => {
-      if (!!cell[key]) set.add(cell[key]);
-    });
+    if (!!cell.value) set.add(cell.value);
   });
   return set;
 }
 
-function _getTakenValues(region, row, col, valueKeys = ["value"]) {
+function _getTakenValues(region, row, col) {
   const filter = new Set();
-  addCellValuesToSet(filter, region, valueKeys);
-  addCellValuesToSet(filter, row, valueKeys);
-  addCellValuesToSet(filter, col, valueKeys);
+  addCellValuesToSet(filter, region);
+  addCellValuesToSet(filter, row);
+  addCellValuesToSet(filter, col);
   return filter;
 }
 
@@ -150,6 +167,11 @@ export class SudokuMath {
       .fill(null)
       .map((value) => ({ value }));
 
+  /**
+   * Returns the remaining legal values given a set of taken values.
+   *
+   * @param {Set<Integer>} taken a set of taken values
+   */
   getLegalValues(taken) {
     return this.legalValues.filter((value) => !taken.has(value));
   }
@@ -180,7 +202,7 @@ export class SudokuMath {
     if (this.optimisticSolver(optimistic)) {
       return true;
     }
-    return this.backTrackingSolver(optimistic) === 1;
+    return this.backTrackingSolver(optimistic, 2) === 1;
   }
 
   /**
@@ -190,10 +212,9 @@ export class SudokuMath {
    */
   generatePuzzle(clues) {
     const puzzle = this.getBlankPuzzle();
-    console.log("hi", this);
-    this.completeSolver(puzzle, shuffle);
+    this.backTrackingSolver(puzzle, 1, shuffle);
 
-    if (clues >= puzzle.length) return puzzle;
+    if (clues === -1 || clues >= puzzle.length) return puzzle;
 
     const orig = clone(puzzle);
 
@@ -227,6 +248,7 @@ export class SudokuMath {
       if (!removeCell()) {
         fails++;
       } else {
+        console.log(`Removed ${removed.length} cells.`);
         fails = 0;
       }
       if (fails > removeNext.length) {
@@ -280,80 +302,20 @@ export class SudokuMath {
   }
 
   /**
-   * Attempt to completely solve a puzzle. Can also be used to generate a full
-   * puzzle. Less efficient than backtracking solver at finding solutions, but
-   * more efficient if you only want *one* solution.
-   *
-   * @param {[T]} puzzle see optimisticSolver
-   * @param {Function} guessStrategy a function which takes an array of possible
-   *  values for a cell as an argument, and either re-orders/shuffles them, or
-   *  returns the array unmodified.
-   *
-   */
-  completeSolver(puzzle, guessStrategy = (values) => values) {
-    const takenKeys = ["value", "guess"];
-    const regions = this.chunkRegions(puzzle);
-    const rows = this.regionsToRows(puzzle, true);
-    const cols = this.regionsToCols(puzzle, true);
-
-    const solve = (i) => {
-      if (i === puzzle.length) {
-        return true;
-      }
-
-      const cell = puzzle[i];
-      if (!!cell.value) return solve(i + 1);
-
-      const region = this.regionFromRegionIndex(i);
-      const [row, col] = this.rowColFromRegionIndex(i);
-      const taken = _getTakenValues(
-        regions[region],
-        rows[row],
-        cols[col],
-        takenKeys
-      );
-
-      // no available values, give up this branch
-      if (taken.size === this.regionCells) return false;
-
-      const avail = guessStrategy(this.getLegalValues(taken));
-      for (const guess of avail) {
-        // clear all guesses after i
-        for (let j = i + 1; j < puzzle.length; j++) {
-          delete puzzle[j].guess;
-        }
-
-        puzzle[i].guess = guess;
-
-        // if this guess worked (reached end of puzzle) we conclude
-        if (solve(i + 1)) {
-          return true;
-        }
-      }
-
-      // no guess worked
-      // upper branch will try next guess, or this is an impossible puzzle
-      return false;
-    };
-
-    const result = solve(0);
-    puzzle.forEach((cell) => {
-      if (!!cell.guess) {
-        cell.value = cell.guess;
-        delete cell.guess;
-      }
-    });
-    return result;
-  }
-
-  /**
    * Backtracking solver. Mutates the puzzle during solve but eventually returns
    * it to its initial state.
    *
    * @param {[T]} puzzle see optimisticSolver
+   * @param {Integer} stopAfter stop looking after this many solutions
+   * @param {Function} guessStrategy a function which takes an array of possible
+   *   values for a cell, and returns the same values (in any order)
    * @returns the number of solutions found
    */
-  backTrackingSolver(puzzle) {
+  backTrackingSolver(
+    puzzle,
+    stopAfter = -1,
+    guessStrategy = (values) => values
+  ) {
     const regions = this.chunkRegions(puzzle);
     const rows = this.regionsToRows(puzzle, true);
     const cols = this.regionsToCols(puzzle, true);
@@ -365,17 +327,23 @@ export class SudokuMath {
         if (!cell.value) {
           const region = this.regionFromRegionIndex(i);
           const [row, col] = this.rowColFromRegionIndex(i);
-          const taken = _getTakenValues(regions[region], rows[row], cols[col]);
-          const avail = this.getLegalValues(taken);
+          const avail = guessStrategy(
+            this.getLegalValues(
+              _getTakenValues(regions[region], rows[row], cols[col])
+            )
+          );
           for (let j = 0; j < avail.length; j++) {
             cell.value = avail[j];
-            solve();
+            if (solve() && solutions === stopAfter) {
+              return true;
+            }
             cell.value = null;
           }
-          return;
+          return false;
         }
       }
       solutions++;
+      return true;
     };
 
     solve();

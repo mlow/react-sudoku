@@ -178,7 +178,7 @@ export const Sudoku = () => {
   function handleSolve() {
     if (window.confirm("Are you sure you want the puzzle to be solved?")) {
       if (!sudokuMath.optimisticSolver(cells)) {
-        sudokuMath.completeSolver(cells);
+        sudokuMath.backTrackingSolver(cells, true);
       }
       setCells(cells.map((cell) => cell));
     }
