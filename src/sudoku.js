@@ -33,7 +33,7 @@ function getColumnStyle(colCount) {
 const Region = ({ regionWidth, ordinal, selected, cells, onClick }) => (
   <div className="region" style={getColumnStyle(regionWidth)}>
     {cells.map((cell, i) => {
-      const index = ordinal * 9 + i;
+      const index = ordinal * cells.length + i;
       return (
         <Cell
           key={`${ordinal}-${i}`}
