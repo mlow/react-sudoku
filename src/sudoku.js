@@ -1,28 +1,42 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import classNames from "classnames";
 import { SudokuMath } from "./math.js";
 import "./sudoku.css";
 
-const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-function renderedValue(value) {
-  if (value < 10) {
-    return value;
-  } else {
-    return letters[value - 10];
-  }
-}
+const RenderStyleContext = React.createContext();
 
-const Cell = React.memo(({ onClick, index, selected, disabled, value }) => (
-  <button
-    onClick={() => onClick(index)}
-    disabled={disabled}
-    className={classNames("cell", {
-      selected: !!selected,
-    })}
-  >
-    {renderedValue(value)}
-  </button>
-));
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const Cell = React.memo(({ onClick, index, selected, disabled, value }) => {
+  const renderStyle = useContext(RenderStyleContext);
+  function renderedValue() {
+    switch (renderStyle) {
+      case 1:
+        return letters[value - 1];
+      case 2:
+        return value < 10 ? value : letters[value - 10];
+      default:
+        return value;
+    }
+  }
+  return (
+    <button
+      onClick={() => onClick(index)}
+      disabled={disabled}
+      className={classNames("cell", {
+        selected: !!selected,
+      })}
+    >
+      {renderedValue()}
+    </button>
+  );
+});
 
 function getColumnStyle(colCount) {
   return {
@@ -86,31 +100,24 @@ const Timer = ({ start }) => {
   return <span className="timer">{formatElapsedMilliseconds(elapsed)}</span>;
 };
 
-const DIFFICULTY_CLUES = [38, 30, 25, 23];
+const DIFFICULTY_CLUES = [138, 118, 116, 93];
 const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
-
-function generate(sudokuMath, difficulty) {
-  return sudokuMath
-    .generatePuzzle(DIFFICULTY_CLUES[difficulty])
-    .map(({ value }) => ({
-      value,
-      disabled: !!value,
-    }));
-}
+const RENDER_STYLES = ["Numbers", "Letters", "Mixed"];
 
 export const Sudoku = () => {
   const [difficulty, setDifficulty] = useState(1);
-  const [regionWidth, setRegionWidth] = useState(3);
-  const [regionHeight, setRegionHeight] = useState(3);
+  const [regionWidth, setRegionWidth] = useState(4);
+  const [regionHeight, setRegionHeight] = useState(4);
+  const [regenerate, setRegenerate] = useState(false);
   const sudokuMath = useMemo(() => new SudokuMath(regionWidth, regionHeight), [
     regionWidth,
     regionHeight,
   ]);
-  console.log(sudokuMath);
-  const [cells, setCells] = useState(() => generate(sudokuMath, difficulty));
+  const [cells, setCells] = useState(sudokuMath.getBlankPuzzle());
   const [selected, setSelected] = useState(undefined);
   const [showHints, setShowHints] = useState(false);
   const [timerStart, setTimerStart] = useState(() => Date.now());
+  const [renderStyle, setRenderStyle] = useState(0);
   const board = useRef(null);
   const input = useRef(null);
 
@@ -120,6 +127,16 @@ export const Sudoku = () => {
       setSelected(undefined);
     }
   });
+
+  const isLoading = useSudukoApi(
+    regionWidth,
+    regionHeight,
+    DIFFICULTY_CLUES[difficulty],
+    regenerate,
+    useCallback((cells) => setCells(sudokuMath.rowsToRegions(cells)), [
+      sudokuMath,
+    ])
+  );
 
   const handleSetValue = (value) => {
     if (selected !== undefined && cells[selected].value !== value) {
@@ -164,7 +181,7 @@ export const Sudoku = () => {
   }
 
   function _regenerate() {
-    setCells(generate(sudokuMath, difficulty));
+    setRegenerate(!regenerate);
     setSelected(undefined);
     setTimerStart(Date.now());
   }
@@ -188,17 +205,23 @@ export const Sudoku = () => {
     setShowHints(!showHints);
   }
 
+  function handleRenderStyleRadio(e) {
+    setRenderStyle(parseInt(e.target.value));
+  }
+
   return (
     <div className="game">
-      <div ref={board}>
-        <Board
-          regions={regions}
-          regionWidth={regionWidth}
-          regionHeight={regionHeight}
-          selected={selected}
-          onClick={setSelected}
-        />
-      </div>
+      <RenderStyleContext.Provider value={renderStyle}>
+        <div ref={board}>
+          <Board
+            regions={regions}
+            regionWidth={regionWidth}
+            regionHeight={regionHeight}
+            selected={selected}
+            onClick={setSelected}
+          />
+        </div>
+      </RenderStyleContext.Provider>
       <div className="settings" ref={input}>
         <select
           className="setting"
@@ -212,11 +235,13 @@ export const Sudoku = () => {
           ))}
         </select>
         <button onClick={handleRegenerate}>Regenerate</button>
-        <Input
-          regionWidth={regionWidth}
-          cells={getInputCells()}
-          onInput={handleSetValue}
-        />
+        <RenderStyleContext.Provider value={renderStyle}>
+          <Input
+            regionWidth={regionWidth}
+            cells={getInputCells()}
+            onInput={handleSetValue}
+          />
+        </RenderStyleContext.Provider>
         <button onClick={handleReset}>Reset</button>
         <button onClick={handleSolve}>Solve</button>
         <label>
@@ -228,6 +253,21 @@ export const Sudoku = () => {
           />
           Hints?
         </label>
+        <span onChange={handleRenderStyleRadio}>
+          {RENDER_STYLES.map((style, i) => (
+            <div key={`renderStyle-${i}`}>
+              <input
+                type="radio"
+                id={style}
+                name="renderStyle"
+                value={i}
+                onChange={handleRenderStyleRadio}
+                checked={i === renderStyle}
+              />
+              <label htmlFor={style}>{style}</label>
+            </div>
+          ))}
+        </span>
         <Timer start={timerStart} />
       </div>
     </div>
@@ -239,4 +279,47 @@ function useWindowClickListener(func) {
     window.addEventListener("click", func);
     return () => window.removeEventListener("click", func);
   });
+}
+
+function useSudukoApi(regionWidth, regionHeight, clues, regenerate, callback) {
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      const response = await fetch("http://localhost:4000/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `query generate($regionWidth: Int!, $regionHeight: Int!, $clues: Int!) {
+          generate(
+            regionWidth: $regionWidth
+            regionHeight: $regionHeight
+            clues: $clues
+          ) {
+            cells {
+              value
+            }
+          }
+        }`,
+          variables: {
+            regionWidth,
+            regionHeight,
+            clues,
+          },
+        }),
+      });
+      setIsLoading(false);
+
+      if (response.ok) {
+        const json = await response.json();
+        console.log(json);
+        callback(
+          json.data.generate.cells.reduce((acc, row) => acc.concat(row), [])
+        );
+      }
+    })();
+  }, [callback, regenerate, regionWidth, regionHeight, clues]);
+  return isLoading;
 }
