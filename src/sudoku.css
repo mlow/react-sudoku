@@ -3,6 +3,10 @@ body {
   margin: 20px;
 }
 
+:root {
+  --grid-border-color: #999;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -19,7 +23,6 @@ body {
 .settings > * {
   margin-bottom: 10px;
   display: block;
-  width: 100%;
   user-select: none;
 }
 
@@ -27,27 +30,30 @@ body {
   text-align: center;
 }
 
-.input-area {
-  border-right: 2px solid #999;
-  border-bottom: 2px solid #999;
+.input {
+  border-right: 2px solid var(--grid-border-color);
+  border-bottom: 2px solid var(--grid-border-color);
 }
-
-.input-area > button {
-  border: 0px;
+.input > .erase {
+  font-size: 1.25rem;
+  font-weight: bold;
   width: 100%;
+  height: 2rem;
   background-color: #fff;
-  border-left: 3px solid #999;
-  border-right: 1px solid #999;
-  border-bottom: 1px solid #999;
-  height: 28px;
+  border-left: 3px solid var(--grid-border-color);
 }
 
-.input-area > button:hover:enabled {
-  background-color: #eee;
+.input > button {
+  width: 100%;
+  border: 0px;
+  border-right: 1px solid var(--grid-border-color);
+  border-bottom: 1px solid var(--grid-border-color);
 }
-
-.input-area > button:focus {
+.input > button:focus {
   outline: none;
+}
+.input > button:hover:enabled {
+  background-color: #eee;
 }
 
 .input .cell {
@@ -58,16 +64,16 @@ body {
 
 .board {
   display: grid;
-  border-top: 1px solid #999;
-  border-left: 1px solid #999;
-  border-right: 3px solid #999;
-  border-bottom: 3px solid #999;
+  border-top: 1px solid var(--grid-border-color);
+  border-left: 1px solid var(--grid-border-color);
+  border-right: 3px solid var(--grid-border-color);
+  border-bottom: 3px solid var(--grid-border-color);
 }
 
 .region {
   display: grid;
-  border-top: 3px solid #999;
-  border-left: 3px solid #999;
+  border-top: 3px solid var(--grid-border-color);
+  border-left: 3px solid var(--grid-border-color);
 }
 
 .cell {
@@ -75,8 +81,8 @@ body {
   height: 2.5rem;
   background: #fff;
   border: 0px;
-  border-right: 1px solid #999;
-  border-bottom: 1px solid #999;
+  border-right: 1px solid var(--grid-border-color);
+  border-bottom: 1px solid var(--grid-border-color);
   padding: 0;
   font-size: 1.75rem;
   font-weight: bold;
@@ -92,12 +98,4 @@ body {
 
 .cell:focus {
   outline: none;
-}
-
-.cell.invalid {
-  color: RED;
-}
-
-.cell.valid {
-  color: GREEN;
 }

@@ -1,388 +1,314 @@
-import React, {
-  useState,
-  useEffect,
-  useContext,
-  useMemo,
-  useRef,
-  useCallback,
-} from "react";
-import classNames from "classnames";
+import React, { useRef, useCallback, useReducer } from "react";
 
-import { Cell as TCell } from "./types";
-
-import { SudokuMath } from "./math";
 import "./sudoku.css";
 
-const RenderStyleContext = React.createContext(0);
+import { SudokuTransform } from "./transform";
 
-const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+import { useWindowClickListener } from "./effects";
+import { useSudokuApi } from "./api";
 
-type SelectCellCallback = (idx: number) => void;
+import { Timer } from "./components/timer";
+import { Input, Board, Settings, Cell as CellJsx } from "./components/sudoku";
 
-interface CellProps {
-  onClick: SelectCellCallback;
-  index: number;
-  value: number;
-  selected?: boolean;
-  disabled?: boolean;
-}
+const DEFAULT_WIDTH = 3;
+const DEFAULT_HEIGHT = 3;
+const DEFAULT_DIFFICULTY = 1;
 
-const Cell = React.memo(
-  ({ onClick, index, selected, disabled, value }: CellProps) => {
-    const renderStyle = useContext(RenderStyleContext);
-    function renderedValue() {
-      if (value === 0) {
-        return;
-      }
-      switch (renderStyle) {
-        case 1:
-          return letters[value - 1];
-        case 2:
-          return value < 10 ? value : letters[value - 10];
-        default:
-          return value;
-      }
-    }
-    return (
-      <button
-        onClick={() => onClick(index)}
-        disabled={disabled}
-        className={classNames("cell", {
-          selected: !!selected,
-        })}
-      >
-        {renderedValue()}
-      </button>
-    );
-  }
-);
-
-function getColumnStyle(colCount: number) {
-  return {
-    gridTemplateColumns: `repeat(${colCount}, 1fr)`,
-  };
-}
-
-interface RegionProps {
-  regionWidth: number;
-  ordinal: number;
-  selected?: number;
-  cells: TCell[];
-  onClick: SelectCellCallback;
-}
-
-const Region = ({
-  regionWidth,
-  ordinal,
-  selected,
-  cells,
-  onClick,
-}: RegionProps) => (
-  <div className="region" style={getColumnStyle(regionWidth)}>
-    {cells.map((cell, i) => {
-      const index = ordinal * cells.length + i;
-      return (
-        <Cell
-          key={`${ordinal}-${i}`}
-          onClick={onClick}
-          index={index}
-          selected={index === selected}
-          {...cell}
-        />
-      );
-    })}
-  </div>
-);
-
-interface BoardProps {
-  regions: TCell[][];
-  regionWidth: number;
-  regionHeight: number;
-  selected: number;
-  onClick: SelectCellCallback;
-}
-
-const Board = (props: BoardProps) => (
-  <div className="board" style={getColumnStyle(props.regionHeight)}>
-    {props.regions.map((region, i) => (
-      <Region {...props} key={i} ordinal={i} cells={region} />
-    ))}
-  </div>
-);
-
-interface InputProps {
-  regionWidth: number;
-  cells: TCell[];
-  onInput: (idx: number) => void;
-}
-
-const Input = ({ regionWidth, cells, onInput }: InputProps) => (
-  <div className="input-area">
-    <div className="input">
-      <Region
-        ordinal={0}
-        regionWidth={regionWidth}
-        cells={cells}
-        onClick={(i) => onInput(i + 1)}
-      />
-    </div>
-    <button onClick={() => onInput(0)}>Erase</button>
-  </div>
-);
-
-function formatElapsedMilliseconds(ms: number) {
-  const hours = String(Math.floor(ms / (3600 * 1000))).padStart(2, "0");
-  const minutes = String(Math.floor((ms / (60 * 1000)) % 60)).padStart(2, "0");
-  const seconds = String(Math.floor((ms / 1000) % 60)).padStart(2, "0");
-  const deciseconds = String(Math.floor(ms / 100) % 10);
-  return `${hours}:${minutes}:${seconds}.${deciseconds}`;
-}
-
-interface TimerParams {
-  start: number;
-}
-
-const Timer = ({ start }: TimerParams) => {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setElapsed(Date.now() - start), 50);
-    return () => clearInterval(timer);
-  }, [start]);
-  return <span className="timer">{formatElapsedMilliseconds(elapsed)}</span>;
+const DIFFICULTY_CLUES: { [key: number]: number[] } = {
+  4: [16, 16, 16, 16],
+  6: [36, 36, 36, 36],
+  9: [38, 30, 23, 21],
+  12: [144, 144, 144, 144],
+  15: [225, 225, 225, 225],
+  16: [133, 118, 105, 95],
+  20: [400, 400, 400, 400],
+  25: [625, 625, 625, 625],
+  30: [900, 900, 900, 900],
+  36: [1296, 1296, 1296, 1296],
 };
 
-const DIFFICULTY_CLUES = [138, 118, 116, 93];
-const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
-const RENDER_STYLES = ["Numbers", "Letters", "Mixed"];
+interface Cell {
+  /** The ID of this cell on the board */
+  idx: number;
+  /** The value of the cell */
+  value: number;
+  /** Whether this cell is disabled */
+  disabled: boolean;
+  /** Whether this cell is currently selected */
+  selected: boolean;
+  /** The renderStyle to use for this cell */
+  renderStyle: number;
+  /** The element rendered for this cell */
+  element: JSX.Element;
+  /** re-renders the JSX with current values */
+  update: () => void;
+}
+
+const getCell = (
+  idx: number,
+  value: number,
+  onClick: (idx: number) => any,
+  renderStyle: number = 0,
+  selected: boolean = false,
+  disabled: boolean = false
+): Cell => {
+  const cell = {
+    idx,
+    value,
+    renderStyle,
+    selected,
+    disabled,
+  } as Cell;
+
+  cell.update = () => (cell.element = CellJsx({ ...cell, onClick }));
+  cell.update();
+  return cell;
+};
+
+interface GameState {
+  /** The width of each region */
+  regionWidth: number;
+  /** The height of each region */
+  regionHeight: number;
+  /** The difficulty of the generated sudoku, from 0-3 */
+  difficulty: number;
+  /** A cached SudokuTransform instance */
+  transform: SudokuTransform;
+  /** Board regenerates when toggled */
+  regenerate: boolean;
+  /** The cells of the board */
+  cells: Cell[];
+  /** The currently selected cell */
+  selected: number;
+
+  /** When the timer started */
+  timerStart: number;
+  /** Current cell rendering style, from 0-2 */
+  renderStyle: number;
+  /** Whether to show hints */
+  showHints: boolean;
+}
+
+type Action =
+  | { type: "reset" | "regenerate" | "toggleShowHints" }
+  | {
+      type: "setSelected" | "setRenderStyle" | "setValue";
+      payload: number;
+    }
+  | {
+      type: "setSudokuParameters";
+      payload: {
+        regionWidth: number;
+        regionHeight: number;
+        difficulty: number;
+      };
+    }
+  | {
+      type: "onApiLoad";
+      payload: { dispatch: React.Dispatch<Action>; cells: number[] };
+    };
+
+const reducer = (state: GameState, action: Action): GameState => {
+  switch (action.type) {
+    case "setSudokuParameters":
+      const { regionWidth, regionHeight, difficulty } = action.payload;
+      return {
+        ...state,
+        cells: [],
+        regionWidth,
+        regionHeight,
+        difficulty,
+        transform: new SudokuTransform(regionWidth, regionHeight),
+      };
+    case "setSelected":
+      const selected = action.payload;
+      return {
+        ...state,
+        selected,
+        cells: state.cells.map((cell, idx) => {
+          if (
+            (cell.selected && idx !== selected) ||
+            (!cell.selected && idx === selected)
+          ) {
+            cell.selected = idx === selected;
+            cell.update();
+          }
+          return cell;
+        }),
+      };
+    case "setValue":
+      return {
+        ...state,
+        cells: state.cells.map((cell) => {
+          if (cell.idx === state.selected) {
+            cell.value = action.payload;
+            cell.update();
+          }
+          return cell;
+        }),
+      };
+    case "setRenderStyle":
+      const renderStyle = action.payload;
+      return {
+        ...state,
+        renderStyle,
+        cells: state.cells.map((cell) => {
+          cell.renderStyle = renderStyle;
+          cell.update();
+          return cell;
+        }),
+      };
+    case "onApiLoad":
+      const click = (idx: number) =>
+        action.payload.dispatch({ type: "setSelected", payload: idx });
+      return {
+        ...state,
+        selected: NaN,
+        timerStart: Date.now(),
+        cells: state.transform
+          .rowsToRegions(action.payload.cells)
+          .map((value, idx) =>
+            getCell(idx, value, click, state.renderStyle, false, value > 0)
+          ),
+      };
+    case "reset":
+      return {
+        ...state,
+        timerStart: Date.now(),
+        cells: state.cells.map((cell) => {
+          if (!cell.disabled && cell.value > 0) {
+            cell.value = 0;
+            cell.update();
+          }
+          return cell;
+        }),
+      };
+    case "regenerate":
+      return {
+        ...state,
+        regenerate: !state.regenerate,
+      };
+    case "toggleShowHints":
+      return {
+        ...state,
+        showHints: !state.showHints,
+      };
+    default:
+      throw new Error(`Invalid Action.type`);
+  }
+};
 
 export const Sudoku = () => {
-  const [difficulty, setDifficulty] = useState(1);
-  const [regionWidth, setRegionWidth] = useState(4);
-  const [regionHeight, setRegionHeight] = useState(4);
-  const [regenerate, setRegenerate] = useState(false);
-  const sudokuMath = useMemo(() => new SudokuMath(regionWidth, regionHeight), [
-    regionWidth,
-    regionHeight,
-  ]);
-  const [cells, setCells] = useState(
-    () => sudokuMath.getBlankPuzzle() as TCell[]
-  );
-  const [selected, setSelected] = useState(NaN);
-  const [showHints, setShowHints] = useState(false);
-  const [timerStart, setTimerStart] = useState(() => Date.now());
-  const [renderStyle, setRenderStyle] = useState(0);
-
-  const board = useRef<HTMLDivElement>(null!);
-  const input = useRef<HTMLInputElement>(null!);
-
-  useWindowClickListener(({ target }) => {
-    if (
-      ![board, input].some(({ current }) => current.contains(target as Node))
-    ) {
-      // unselect our current cell when outside of board or input clicked
-      setSelected(NaN);
-    }
+  const [state, dispatch] = useReducer(reducer, {
+    regionWidth: DEFAULT_WIDTH,
+    regionHeight: DEFAULT_HEIGHT,
+    difficulty: DEFAULT_DIFFICULTY,
+    transform: new SudokuTransform(DEFAULT_WIDTH, DEFAULT_HEIGHT),
+    cells: [],
+    selected: NaN,
+    renderStyle: 0,
+    regenerate: false,
+    showHints: false,
+    timerStart: 0,
   });
 
-  const isLoading = useSudukoApi(
-    regionWidth,
-    regionHeight,
-    DIFFICULTY_CLUES[difficulty],
-    regenerate,
+  const isLoading = useSudokuApi(
+    state.regionWidth,
+    state.regionHeight,
+    DIFFICULTY_CLUES[state.regionHeight * state.regionWidth][state.difficulty],
+    state.regenerate,
     useCallback(
-      (cells) => setCells(sudokuMath.rowsToRegions(cells) as TCell[]),
-      [sudokuMath]
+      (cells) => dispatch({ type: "onApiLoad", payload: { dispatch, cells } }),
+      [dispatch]
     )
   );
 
-  const handleSetValue = (value: number) => {
-    if (selected && cells[selected].value !== value) {
-      cells[selected].value = value;
-      setCells(cells.slice());
+  const board = useRef<HTMLDivElement>(null!);
+  const input = useRef<HTMLDivElement>(null!);
+  const settings = useRef<HTMLDivElement>(null!);
+  useWindowClickListener(({ target }) => {
+    if (
+      !isNaN(state.selected) &&
+      ![board, input, settings].some(
+        ({ current }) => current && current.contains(target as Node)
+      )
+    ) {
+      // unselect our current cell when outside of board or input is clicked
+      dispatch({ type: "setSelected", payload: NaN });
     }
-  };
+  });
 
-  const getInputCells = () => {
-    if (Number.isNaN(selected) || !showHints) {
-      return sudokuMath.legalValues.map((value) => ({
+  const getInputCells = (): JSX.Element[] => {
+    const takenValues =
+      !isNaN(state.selected) && state.showHints
+        ? state.transform.getTakenValues(state.selected, state.cells)
+        : new Set<number>();
+    return state.transform.values.map((value, idx) =>
+      CellJsx({
+        idx,
         value,
-        disabled: false,
-      }));
-    }
-
-    const takenValues = sudokuMath.getTakenValues(selected, cells);
-    return sudokuMath.legalValues.map((value) => ({
-      value,
-      disabled: takenValues.has(value),
-    }));
+        disabled: takenValues.has(value),
+        selected: false,
+        renderStyle: state.renderStyle,
+        onClick: (idx) => dispatch({ type: "setValue", payload: idx + 1 }),
+      })
+    );
   };
 
-  function handleRegionWidthChange(newWidth: number) {
-    setRegionWidth(newWidth);
-  }
+  const regions: JSX.Element[][] = state.transform.chunkRegions(
+    state.cells.map((cell) => cell.element)
+  );
 
-  function handleRegionHeightChange(newHeight: number) {
-    setRegionHeight(newHeight);
-  }
-
-  function handleShowHintCheckbox() {
-    setShowHints(!showHints);
-  }
-
-  function handleDifficultySelect(e: React.ChangeEvent<HTMLSelectElement>) {
-    setDifficulty(parseInt(e.target.value));
-  }
-
-  function handleRenderStyleRadio(e: React.ChangeEvent<HTMLInputElement>) {
-    setRenderStyle(parseInt(e.target.value));
-  }
-
-  function handleReset() {
-    if (window.confirm("Are you sure you want to reset the puzzle?")) {
-      setCells(
-        cells.map(({ value, disabled }) => ({
-          value: disabled ? value : 0,
-          disabled,
-        }))
-      );
+  const boardAndInputJsx = () => {
+    if (isLoading) {
+      return <span>Loading...</span>;
     }
-  }
 
-  function _regenerate() {
-    setRegenerate(!regenerate);
-    setSelected(NaN);
-    setTimerStart(Date.now());
-  }
-
-  function handleRegenerate() {
-    if (window.confirm("Are you sure you want to regenerate the puzzle?")) {
-      _regenerate();
-    }
-  }
-
-  function handleSolve() {
-    if (window.confirm("Are you sure you want the puzzle to be solved?")) {
-      throw Error("Not implemented.");
-    }
-  }
+    return (
+      <>
+        <div className="input" ref={input}>
+          <Input
+            regionWidth={state.regionWidth}
+            cells={getInputCells()}
+            onErase={() => dispatch({ type: "setValue", payload: 0 })}
+          />
+        </div>
+        <div ref={board}>
+          <Board
+            regionWidth={state.regionWidth}
+            regionHeight={state.regionHeight}
+            regions={regions}
+          />
+        </div>
+        <span className="timer">
+          <Timer start={state.timerStart} />
+        </span>
+      </>
+    );
+  };
 
   return (
     <div className="game">
-      <RenderStyleContext.Provider value={renderStyle}>
-        <div ref={board}>
-          <Board
-            regions={sudokuMath.chunkRegions(cells)}
-            regionWidth={regionWidth}
-            regionHeight={regionHeight}
-            selected={selected}
-            onClick={setSelected}
-          />
-        </div>
-      </RenderStyleContext.Provider>
-      <div className="settings" ref={input}>
-        <select
-          className="setting"
-          defaultValue={difficulty}
-          onChange={handleDifficultySelect}
-        >
-          {DIFFICULTIES.map((name, i) => (
-            <option key={i} value={i}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <button onClick={handleRegenerate}>Regenerate</button>
-        <RenderStyleContext.Provider value={renderStyle}>
-          <Input
-            regionWidth={regionWidth}
-            cells={getInputCells()}
-            onInput={handleSetValue}
-          />
-        </RenderStyleContext.Provider>
-        <button onClick={handleReset}>Reset</button>
-        <button onClick={handleSolve}>Solve</button>
-        <label>
-          <input
-            type="checkbox"
-            name="hints"
-            checked={showHints}
-            onChange={handleShowHintCheckbox}
-          />
-          Hints?
-        </label>
-        <span onChange={handleRenderStyleRadio}>
-          {RENDER_STYLES.map((style, i) => (
-            <div key={`renderStyle-${i}`}>
-              <input
-                type="radio"
-                id={style}
-                name="renderStyle"
-                value={i}
-                onChange={handleRenderStyleRadio}
-                checked={i === renderStyle}
-              />
-              <label htmlFor={style}>{style}</label>
-            </div>
-          ))}
-        </span>
-        <Timer start={timerStart} />
+      <div className="settings" ref={settings}>
+        <Settings
+          regionWidth={state.regionWidth}
+          regionHeight={state.regionHeight}
+          difficulty={state.difficulty}
+          onApply={(settings) =>
+            dispatch({ type: "setSudokuParameters", payload: settings })
+          }
+          onRegenerate={() => dispatch({ type: "regenerate" })}
+          onReset={() => dispatch({ type: "reset" })}
+          onSolve={() => {
+            throw new Error("Not implemented.");
+          }}
+          onRenderStyleChange={(renderStyle: number) =>
+            dispatch({ type: "setRenderStyle", payload: renderStyle })
+          }
+          onToggleHints={() => dispatch({ type: "toggleShowHints" })}
+        />
       </div>
+      {boardAndInputJsx()}
     </div>
   );
 };
-
-function useWindowClickListener(func: (e: MouseEvent) => any) {
-  useEffect(() => {
-    window.addEventListener("click", func);
-    return () => window.removeEventListener("click", func);
-  });
-}
-
-function useSudukoApi(
-  regionWidth: number,
-  regionHeight: number,
-  clues: number,
-  regenerate: any,
-  callback: (cells: TCell[]) => void
-) {
-  const [isLoading, setIsLoading] = useState(false);
-  useEffect(() => {
-    (async () => {
-      setIsLoading(true);
-      const response = await fetch("http://localhost:4000/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: `query generate($regionWidth: Int!, $regionHeight: Int!, $clues: Int!) {
-          generate(
-            regionWidth: $regionWidth
-            regionHeight: $regionHeight
-            clues: $clues
-          ) {
-            cells
-          }
-        }`,
-          variables: {
-            regionWidth,
-            regionHeight,
-            clues,
-          },
-        }),
-      });
-      setIsLoading(false);
-
-      if (response.ok) {
-        const json = await response.json();
-        callback(
-          json.data.generate.cells.map((value: number) => ({
-            value: value,
-            disabled: value > 0,
-          }))
-        );
-      }
-    })();
-  }, [callback, regenerate, regionWidth, regionHeight, clues]);
-  return isLoading;
-}
