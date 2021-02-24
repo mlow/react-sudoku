@@ -7,44 +7,77 @@ import React, {
   useCallback,
 } from "react";
 import classNames from "classnames";
-import { SudokuMath } from "./math.js";
+
+import { Cell as TCell } from "./types";
+
+import { SudokuMath } from "./math";
 import "./sudoku.css";
 
-const RenderStyleContext = React.createContext();
+const RenderStyleContext = React.createContext(0);
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const Cell = React.memo(({ onClick, index, selected, disabled, value }) => {
-  const renderStyle = useContext(RenderStyleContext);
-  function renderedValue() {
-    switch (renderStyle) {
-      case 1:
-        return letters[value - 1];
-      case 2:
-        return value < 10 ? value : letters[value - 10];
-      default:
-        return value;
-    }
-  }
-  return (
-    <button
-      onClick={() => onClick(index)}
-      disabled={disabled}
-      className={classNames("cell", {
-        selected: !!selected,
-      })}
-    >
-      {renderedValue()}
-    </button>
-  );
-});
 
-function getColumnStyle(colCount) {
+type SelectCellCallback = (idx: number) => void;
+
+interface CellProps {
+  onClick: SelectCellCallback;
+  index: number;
+  value: number;
+  selected?: boolean;
+  disabled?: boolean;
+}
+
+const Cell = React.memo(
+  ({ onClick, index, selected, disabled, value }: CellProps) => {
+    const renderStyle = useContext(RenderStyleContext);
+    function renderedValue() {
+      if (value === 0) {
+        return;
+      }
+      switch (renderStyle) {
+        case 1:
+          return letters[value - 1];
+        case 2:
+          return value < 10 ? value : letters[value - 10];
+        default:
+          return value;
+      }
+    }
+    return (
+      <button
+        onClick={() => onClick(index)}
+        disabled={disabled}
+        className={classNames("cell", {
+          selected: !!selected,
+        })}
+      >
+        {renderedValue()}
+      </button>
+    );
+  }
+);
+
+function getColumnStyle(colCount: number) {
   return {
     gridTemplateColumns: `repeat(${colCount}, 1fr)`,
   };
 }
 
-const Region = ({ regionWidth, ordinal, selected, cells, onClick }) => (
+interface RegionProps {
+  regionWidth: number;
+  ordinal: number;
+  selected?: number;
+  cells: TCell[];
+  onClick: SelectCellCallback;
+}
+
+const Region = ({
+  regionWidth,
+  ordinal,
+  selected,
+  cells,
+  onClick,
+}: RegionProps) => (
   <div className="region" style={getColumnStyle(regionWidth)}>
     {cells.map((cell, i) => {
       const index = ordinal * cells.length + i;
@@ -61,7 +94,15 @@ const Region = ({ regionWidth, ordinal, selected, cells, onClick }) => (
   </div>
 );
 
-const Board = (props) => (
+interface BoardProps {
+  regions: TCell[][];
+  regionWidth: number;
+  regionHeight: number;
+  selected: number;
+  onClick: SelectCellCallback;
+}
+
+const Board = (props: BoardProps) => (
   <div className="board" style={getColumnStyle(props.regionHeight)}>
     {props.regions.map((region, i) => (
       <Region {...props} key={i} ordinal={i} cells={region} />
@@ -69,7 +110,13 @@ const Board = (props) => (
   </div>
 );
 
-const Input = ({ regionWidth, cells, onInput }) => (
+interface InputProps {
+  regionWidth: number;
+  cells: TCell[];
+  onInput: (idx: number) => void;
+}
+
+const Input = ({ regionWidth, cells, onInput }: InputProps) => (
   <div className="input-area">
     <div className="input">
       <Region
@@ -79,11 +126,11 @@ const Input = ({ regionWidth, cells, onInput }) => (
         onClick={(i) => onInput(i + 1)}
       />
     </div>
-    <button onClick={() => onInput(null)}>Erase</button>
+    <button onClick={() => onInput(0)}>Erase</button>
   </div>
 );
 
-function formatElapsedMilliseconds(ms) {
+function formatElapsedMilliseconds(ms: number) {
   const hours = String(Math.floor(ms / (3600 * 1000))).padStart(2, "0");
   const minutes = String(Math.floor((ms / (60 * 1000)) % 60)).padStart(2, "0");
   const seconds = String(Math.floor((ms / 1000) % 60)).padStart(2, "0");
@@ -91,7 +138,11 @@ function formatElapsedMilliseconds(ms) {
   return `${hours}:${minutes}:${seconds}.${deciseconds}`;
 }
 
-const Timer = ({ start }) => {
+interface TimerParams {
+  start: number;
+}
+
+const Timer = ({ start }: TimerParams) => {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setElapsed(Date.now() - start), 50);
@@ -113,18 +164,23 @@ export const Sudoku = () => {
     regionWidth,
     regionHeight,
   ]);
-  const [cells, setCells] = useState(sudokuMath.getBlankPuzzle());
-  const [selected, setSelected] = useState(undefined);
+  const [cells, setCells] = useState(
+    () => sudokuMath.getBlankPuzzle() as TCell[]
+  );
+  const [selected, setSelected] = useState(NaN);
   const [showHints, setShowHints] = useState(false);
   const [timerStart, setTimerStart] = useState(() => Date.now());
   const [renderStyle, setRenderStyle] = useState(0);
-  const board = useRef(null);
-  const input = useRef(null);
+
+  const board = useRef<HTMLDivElement>(null!);
+  const input = useRef<HTMLInputElement>(null!);
 
   useWindowClickListener(({ target }) => {
-    if (![board, input].some(({ current }) => current.contains(target))) {
-      // unselect our current cell when outside of board clicked
-      setSelected(undefined);
+    if (
+      ![board, input].some(({ current }) => current.contains(target as Node))
+    ) {
+      // unselect our current cell when outside of board or input clicked
+      setSelected(NaN);
     }
   });
 
@@ -133,47 +189,59 @@ export const Sudoku = () => {
     regionHeight,
     DIFFICULTY_CLUES[difficulty],
     regenerate,
-    useCallback((cells) => setCells(sudokuMath.rowsToRegions(cells)), [
-      sudokuMath,
-    ])
+    useCallback(
+      (cells) => setCells(sudokuMath.rowsToRegions(cells) as TCell[]),
+      [sudokuMath]
+    )
   );
 
-  const handleSetValue = (value) => {
-    if (selected !== undefined && cells[selected].value !== value) {
+  const handleSetValue = (value: number) => {
+    if (selected && cells[selected].value !== value) {
       cells[selected].value = value;
       setCells(cells.slice());
     }
   };
 
-  const regions = sudokuMath.chunkRegions(cells);
   const getInputCells = () => {
-    if (selected === undefined || !showHints)
-      return sudokuMath.legalValues.map((value) => ({ value }));
+    if (Number.isNaN(selected) || !showHints) {
+      return sudokuMath.legalValues.map((value) => ({
+        value,
+        disabled: false,
+      }));
+    }
 
-    const takenValues = sudokuMath.getTakenValues(selected, cells, regions);
+    const takenValues = sudokuMath.getTakenValues(selected, cells);
     return sudokuMath.legalValues.map((value) => ({
       value,
       disabled: takenValues.has(value),
     }));
   };
 
-  function handleRegionWidthChange(newWidth) {
+  function handleRegionWidthChange(newWidth: number) {
     setRegionWidth(newWidth);
   }
 
-  function handleRegionHeightChange(newHeight) {
+  function handleRegionHeightChange(newHeight: number) {
     setRegionHeight(newHeight);
   }
 
-  function handleDifficultySelect(e) {
+  function handleShowHintCheckbox() {
+    setShowHints(!showHints);
+  }
+
+  function handleDifficultySelect(e: React.ChangeEvent<HTMLSelectElement>) {
     setDifficulty(parseInt(e.target.value));
+  }
+
+  function handleRenderStyleRadio(e: React.ChangeEvent<HTMLInputElement>) {
+    setRenderStyle(parseInt(e.target.value));
   }
 
   function handleReset() {
     if (window.confirm("Are you sure you want to reset the puzzle?")) {
       setCells(
         cells.map(({ value, disabled }) => ({
-          value: disabled ? value : null,
+          value: disabled ? value : 0,
           disabled,
         }))
       );
@@ -182,7 +250,7 @@ export const Sudoku = () => {
 
   function _regenerate() {
     setRegenerate(!regenerate);
-    setSelected(undefined);
+    setSelected(NaN);
     setTimerStart(Date.now());
   }
 
@@ -194,19 +262,8 @@ export const Sudoku = () => {
 
   function handleSolve() {
     if (window.confirm("Are you sure you want the puzzle to be solved?")) {
-      if (!sudokuMath.optimisticSolver(cells)) {
-        sudokuMath.backTrackingSolver(cells, true);
-      }
-      setCells(cells.map((cell) => cell));
+      throw Error("Not implemented.");
     }
-  }
-
-  function handleShowHintCheckbox() {
-    setShowHints(!showHints);
-  }
-
-  function handleRenderStyleRadio(e) {
-    setRenderStyle(parseInt(e.target.value));
   }
 
   return (
@@ -214,7 +271,7 @@ export const Sudoku = () => {
       <RenderStyleContext.Provider value={renderStyle}>
         <div ref={board}>
           <Board
-            regions={regions}
+            regions={sudokuMath.chunkRegions(cells)}
             regionWidth={regionWidth}
             regionHeight={regionHeight}
             selected={selected}
@@ -274,14 +331,20 @@ export const Sudoku = () => {
   );
 };
 
-function useWindowClickListener(func) {
+function useWindowClickListener(func: (e: MouseEvent) => any) {
   useEffect(() => {
     window.addEventListener("click", func);
     return () => window.removeEventListener("click", func);
   });
 }
 
-function useSudukoApi(regionWidth, regionHeight, clues, regenerate, callback) {
+function useSudukoApi(
+  regionWidth: number,
+  regionHeight: number,
+  clues: number,
+  regenerate: any,
+  callback: (cells: TCell[]) => void
+) {
   const [isLoading, setIsLoading] = useState(false);
   useEffect(() => {
     (async () => {
@@ -298,9 +361,7 @@ function useSudukoApi(regionWidth, regionHeight, clues, regenerate, callback) {
             regionHeight: $regionHeight
             clues: $clues
           ) {
-            cells {
-              value
-            }
+            cells
           }
         }`,
           variables: {
@@ -314,9 +375,11 @@ function useSudukoApi(regionWidth, regionHeight, clues, regenerate, callback) {
 
       if (response.ok) {
         const json = await response.json();
-        console.log(json);
         callback(
-          json.data.generate.cells.reduce((acc, row) => acc.concat(row), [])
+          json.data.generate.cells.map((value: number) => ({
+            value: value,
+            disabled: value > 0,
+          }))
         );
       }
     })();
