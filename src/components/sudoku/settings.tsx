@@ -1,13 +1,13 @@
 import React, { useReducer } from "react";
+import { Select } from "../select";
 
 const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
 const RENDER_STYLES = ["Numbers", "Letters", "Mixed"];
 
-const REGION_INPUT_PARAMS = {
-  type: "number",
-  min: 2,
-  max: 6,
-};
+const REGION_DIMENSION_OPTS = Array(5)
+  .fill(null)
+  .map((_, x) => x + 2)
+  .map((value) => ({ key: String(value), value }));
 
 type SettingsState = {
   regionWidth: number;
@@ -114,36 +114,25 @@ export const Settings = (props: SettingsParams) => {
 
   return (
     <>
-      <input
-        {...REGION_INPUT_PARAMS}
+      <Select
         value={state.regionWidth}
-        onChange={(e) =>
-          dispatch({ type: "setRegionWidth", payload: e.target.valueAsNumber })
-        }
-      ></input>
-      <input
-        {...REGION_INPUT_PARAMS}
+        options={REGION_DIMENSION_OPTS}
+        onSelect={(payload) => dispatch({ type: "setRegionWidth", payload })}
+      />
+      <Select
         value={state.regionHeight}
-        onChange={(e) =>
-          dispatch({ type: "setRegionHeight", payload: e.target.valueAsNumber })
-        }
-      ></input>
-      <select
-        className="setting"
-        defaultValue={state.difficulty}
-        onChange={(e) =>
-          dispatch({ type: "setDifficulty", payload: parseInt(e.target.value) })
-        }
-      >
-        {DIFFICULTIES.map((name, i) => (
-          <option key={i} value={i}>
-            {name}
-          </option>
-        ))}
-      </select>
+        options={REGION_DIMENSION_OPTS}
+        onSelect={(payload) => dispatch({ type: "setRegionHeight", payload })}
+      />
+      <Select
+        value={state.difficulty}
+        options={DIFFICULTIES.map((key, value) => ({ key, value }))}
+        onSelect={(payload) => dispatch({ type: "setDifficulty", payload })}
+      />
       <button onClick={handleApply} disabled={!isParamsChanged()}>
         Apply
       </button>
+      <button onClick={handleRegenerate}>Regenerate</button>
       <br />
       <span>
         {RENDER_STYLES.map((style, i) => (
@@ -172,7 +161,6 @@ export const Settings = (props: SettingsParams) => {
         Hints?
       </label>
       <br />
-      <button onClick={handleRegenerate}>Regenerate</button>
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleSolve}>Solve</button>
     </>
