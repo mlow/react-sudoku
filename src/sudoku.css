@@ -122,3 +122,24 @@ body {
 .form-input > * {
   display: block;
 }
+
+@media print {
+  #controls,
+  #settings,
+  #input {
+    display: none;
+  }
+
+  :root {
+    --grid-border-color: #444;
+  }
+
+  .cell {
+    color: black;
+  }
+}
+
+@page {
+  size: auto;
+  margin: 0;
+}

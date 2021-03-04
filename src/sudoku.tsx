@@ -271,10 +271,11 @@ export const Sudoku = () => {
   const board = useRef<HTMLDivElement>(null!);
   const input = useRef<HTMLDivElement>(null!);
   const settings = useRef<HTMLDivElement>(null!);
+  const controls = useRef<HTMLDivElement>(null!);
   useWindowClickListener(({ target }) => {
     if (
       !isNaN(state.selected) &&
-      ![board, input, settings].some(
+      ![board, input, settings, controls].some(
         ({ current }) => current && current.contains(target as Node)
       )
     ) {
@@ -319,27 +320,33 @@ export const Sudoku = () => {
     return (
       <>
         <div className="game-container">
-          <div className="column" ref={board}>
-            <Settings
-              regionWidth={state.regionWidth}
-              regionHeight={state.regionHeight}
-              difficulty={state.difficulty}
-              onApply={(settings) =>
-                dispatch({ type: "setSudokuParameters", payload: settings })
-              }
-            />
-            <Board
-              regionWidth={state.regionWidth}
-              regionHeight={state.regionHeight}
-              regions={regions()}
-            />
-            <Controls
-              onRegenerate={() => dispatch({ type: "regenerate" })}
-              onReset={() => dispatch({ type: "reset" })}
-              onSolve={() => dispatch({ type: "solve" })}
-            />
+          <div className="column">
+            <div id="settings" className="centered" ref={settings}>
+              <Settings
+                regionWidth={state.regionWidth}
+                regionHeight={state.regionHeight}
+                difficulty={state.difficulty}
+                onApply={(settings) =>
+                  dispatch({ type: "setSudokuParameters", payload: settings })
+                }
+              />
+            </div>
+            <div ref={board}>
+              <Board
+                regionWidth={state.regionWidth}
+                regionHeight={state.regionHeight}
+                regions={regions()}
+              />
+            </div>
+            <div id="controls" ref={controls}>
+              <Controls
+                onRegenerate={() => dispatch({ type: "regenerate" })}
+                onReset={() => dispatch({ type: "reset" })}
+                onSolve={() => dispatch({ type: "solve" })}
+              />
+            </div>
           </div>
-          <div className="column" ref={input}>
+          <div id="input" className="column" ref={input}>
             <Input
               regionWidth={state.regionWidth}
               cells={getInputCells()}

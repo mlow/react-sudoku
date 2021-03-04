@@ -65,7 +65,7 @@ export const Settings = (props: SettingsParams) => {
   };
 
   return (
-    <div style={{ textAlign: "center" }}>
+    <>
       <div className="form-row">
         <div className="form-input">
           <Select
@@ -103,6 +103,6 @@ export const Settings = (props: SettingsParams) => {
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
