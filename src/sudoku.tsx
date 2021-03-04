@@ -13,12 +13,10 @@ import { Input, Board, Settings, Cell as CellJsx } from "./components/sudoku";
 const DEFAULT_WIDTH = 3;
 const DEFAULT_HEIGHT = 3;
 const DEFAULT_DIFFICULTY = 1;
+const RENDER_STYLES = ["Numbers", "Letters", "Mixed"];
 
-const DIFFICULTY_CLUES: { [key: number]: number[] } = {
-  4: [16, 16, 16, 16],
-  6: [36, 36, 36, 36],
-  8: [64, 64, 64, 64],
-  9: [38, 30, 23, 21],
+const DIFFICULTY_CLUES: { [key: number]: [number, number, number, number] } = {
+  9: [38, 30, 25, 22],
   10: [100, 100, 100, 100],
   12: [144, 144, 144, 144],
   15: [225, 225, 225, 225],
@@ -94,7 +92,7 @@ interface GameState {
 }
 
 type Action =
-  | { type: "reset" | "regenerate" | "toggleShowHints" }
+  | { type: "reset" | "regenerate" | "solve" | "toggleShowHints" }
   | {
       type: "setSelected" | "setRenderStyle" | "setValue";
       payload: number;
@@ -192,6 +190,8 @@ const reducer = (state: GameState, action: Action): GameState => {
         ...state,
         regenerate: !state.regenerate,
       };
+    case "solve":
+      throw new Error("Not implemented.");
     case "toggleShowHints":
       return {
         ...state,
@@ -200,6 +200,47 @@ const reducer = (state: GameState, action: Action): GameState => {
     default:
       throw new Error(`Invalid Action.type`);
   }
+};
+
+const Controls = ({
+  onReset,
+  onRegenerate,
+  onSolve,
+}: {
+  onReset: () => void;
+  onRegenerate: () => void;
+  onSolve: () => void;
+}) => {
+  const handleRegenerate = () => {
+    if (window.confirm("Are you sure you want to regenerate the puzzle?")) {
+      onRegenerate();
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm("Are you sure you want to reset the puzzle?")) {
+      onReset();
+    }
+  };
+
+  const handleSolve = () => {
+    if (window.confirm("Are you sure you want the puzzle to be solved?")) {
+      onSolve();
+    }
+  };
+  return (
+    <div className="form-row centered">
+      <div className="form-input">
+        <button onClick={handleReset}>Reset</button>
+      </div>
+      <div className="form-input">
+        <button onClick={handleRegenerate}>Regenerate</button>
+      </div>
+      <div className="form-input">
+        <button onClick={handleSolve}>Solve</button>
+      </div>
+    </div>
+  );
 };
 
 export const Sudoku = () => {
@@ -244,7 +285,7 @@ export const Sudoku = () => {
 
   const getInputCells = (): JSX.Element[] => {
     const takenValues =
-      !isNaN(state.selected) && state.showHints
+      !isNaN(state.selected) && state.showHints && state.cells.length > 0
         ? state.transform.getTakenValues(state.selected, state.cells)
         : new Set<number>();
     return state.transform.values.map((value, idx) =>
@@ -259,60 +300,86 @@ export const Sudoku = () => {
     );
   };
 
-  const regions: JSX.Element[][] = state.transform.chunkRegions(
-    state.cells.map((cell) => cell.element)
-  );
+  const handleHintsToggle = () => {
+    dispatch({ type: "toggleShowHints" });
+  };
 
-  const boardAndInputJsx = () => {
+  const handleRenderStyleChange = (payload: number) => {
+    dispatch({ type: "setRenderStyle", payload });
+  };
+
+  const regions = (): JSX.Element[][] =>
+    state.transform.chunkRegions(state.cells.map((cell) => cell.element));
+
+  const page = () => {
     if (isLoading) {
       return <span>Loading...</span>;
     }
 
     return (
       <>
-        <div className="input" ref={input}>
-          <Input
-            regionWidth={state.regionWidth}
-            cells={getInputCells()}
-            onErase={() => dispatch({ type: "setValue", payload: 0 })}
-          />
+        <div className="game-container">
+          <div className="column" ref={board}>
+            <Settings
+              regionWidth={state.regionWidth}
+              regionHeight={state.regionHeight}
+              difficulty={state.difficulty}
+              onApply={(settings) =>
+                dispatch({ type: "setSudokuParameters", payload: settings })
+              }
+            />
+            <Board
+              regionWidth={state.regionWidth}
+              regionHeight={state.regionHeight}
+              regions={regions()}
+            />
+            <Controls
+              onRegenerate={() => dispatch({ type: "regenerate" })}
+              onReset={() => dispatch({ type: "reset" })}
+              onSolve={() => dispatch({ type: "solve" })}
+            />
+          </div>
+          <div className="column" ref={input}>
+            <Input
+              regionWidth={state.regionWidth}
+              cells={getInputCells()}
+              onErase={() => dispatch({ type: "setValue", payload: 0 })}
+            />
+            <div className="timer centered">
+              <Timer start={state.timerStart} />
+            </div>
+            <div>
+              <input
+                type="checkbox"
+                id="hints"
+                checked={state.showHints}
+                onChange={handleHintsToggle}
+              />
+              <label htmlFor="hints">Hints?</label>
+            </div>
+            <div>
+              {RENDER_STYLES.map((style, i) => (
+                <React.Fragment key={`renderStyle-${i}`}>
+                  <input
+                    type="radio"
+                    id={style}
+                    name="renderStyle"
+                    value={i}
+                    onChange={(e) =>
+                      handleRenderStyleChange(parseInt(e.target.value))
+                    }
+                    checked={i === state.renderStyle}
+                  />
+                  <label htmlFor={style}>{style}</label>
+                  <br />
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
         </div>
-        <div ref={board}>
-          <Board
-            regionWidth={state.regionWidth}
-            regionHeight={state.regionHeight}
-            regions={regions}
-          />
-        </div>
-        <span className="timer">
-          <Timer start={state.timerStart} />
-        </span>
       </>
     );
   };
 
-  return (
-    <div className="game">
-      <div className="settings" ref={settings}>
-        <Settings
-          regionWidth={state.regionWidth}
-          regionHeight={state.regionHeight}
-          difficulty={state.difficulty}
-          onApply={(settings) =>
-            dispatch({ type: "setSudokuParameters", payload: settings })
-          }
-          onRegenerate={() => dispatch({ type: "regenerate" })}
-          onReset={() => dispatch({ type: "reset" })}
-          onSolve={() => {
-            throw new Error("Not implemented.");
-          }}
-          onRenderStyleChange={(renderStyle: number) =>
-            dispatch({ type: "setRenderStyle", payload: renderStyle })
-          }
-          onToggleHints={() => dispatch({ type: "toggleShowHints" })}
-        />
-      </div>
-      {boardAndInputJsx()}
-    </div>
-  );
+  return <div className="page">{page()}</div>;
 };

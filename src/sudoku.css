@@ -11,23 +11,29 @@ body {
   box-sizing: border-box;
 }
 
-.game {
+.page {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  flex-direction: column;
 }
 
-.settings {
-  margin-left: 20px;
+.game-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
-.settings > * {
-  margin-bottom: 10px;
-  display: block;
-  user-select: none;
+.game-container .column {
+  margin: 0 0.5rem;
+  height: 100%;
 }
 
-.timer {
+.centered {
   text-align: center;
+}
+
+.margin-auto {
+  margin: 0 auto;
 }
 
 .input {
@@ -98,4 +104,21 @@ body {
 
 .cell:focus {
   outline: none;
+}
+
+.timer {
+  margin: 0.3rem 0;
+}
+
+.form-row {
+  margin: 0.5em 0;
+}
+
+.form-row > .form-input {
+  display: inline-block;
+  margin: 0 0.5em;
+}
+
+.form-input > * {
+  display: block;
 }

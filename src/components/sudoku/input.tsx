@@ -7,10 +7,10 @@ interface InputProps {
 }
 
 export const Input = ({ regionWidth, cells, onErase }: InputProps) => (
-  <>
+  <div className="input">
     <Region regionWidth={regionWidth} cells={cells} />
     <button className="erase" onClick={onErase}>
       Erase
     </button>
-  </>
+  </div>
 );

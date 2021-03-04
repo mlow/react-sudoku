@@ -1,13 +1,12 @@
-function zeroPad(length: number, n: number) {
+function zeroPad(n: number, length: number = 2) {
   return String(n).padStart(length, "0");
 }
 
 export function formatElapsedMilliseconds(ms: number) {
-  const hours = zeroPad(2, Math.floor(ms / (3600 * 1000)));
-  const minutes = zeroPad(2, Math.floor((ms / (60 * 1000)) % 60));
-  const seconds = zeroPad(2, Math.floor((ms / 1000) % 60));
-  const deciseconds = Math.floor(ms / 100) % 10;
-  return `${hours}:${minutes}:${seconds}.${deciseconds}`;
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  return `${zeroPad(hours)}:${zeroPad(minutes % 60)}:${zeroPad(seconds % 60)}`;
 }
 
 export const getColumnStyle = (colCount: number) => ({
