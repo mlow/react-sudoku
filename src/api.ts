@@ -22,7 +22,7 @@ export function useSudokuApi(
   regenerate: boolean,
   callback: (cells: number[]) => void
 ) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
     (async () => {
       setIsLoading(true);
