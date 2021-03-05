@@ -9,6 +9,7 @@ import { useSudokuApi } from "./api";
 
 import { Timer } from "./components/timer";
 import { Input, Board, Settings, Cell as CellJsx } from "./components/sudoku";
+import { DIFFICULTIES } from "./components/sudoku/settings";
 
 const DEFAULT_WIDTH = 3;
 const DEFAULT_HEIGHT = 3;
@@ -321,7 +322,7 @@ export const Sudoku = () => {
       <>
         <div className="game-container">
           <div className="column">
-            <div id="settings" className="centered" ref={settings}>
+            <div className="print-hide centered" ref={settings}>
               <Settings
                 regionWidth={state.regionWidth}
                 regionHeight={state.regionHeight}
@@ -338,7 +339,10 @@ export const Sudoku = () => {
                 regions={regions()}
               />
             </div>
-            <div id="controls" ref={controls}>
+            <div className="print-block difficulty-label centered">
+              {DIFFICULTIES[state.difficulty]}
+            </div>
+            <div className="print-hide" ref={controls}>
               <Controls
                 onRegenerate={() => dispatch({ type: "regenerate" })}
                 onReset={() => dispatch({ type: "reset" })}
@@ -346,7 +350,7 @@ export const Sudoku = () => {
               />
             </div>
           </div>
-          <div id="input" className="column" ref={input}>
+          <div className="print-hide column" ref={input}>
             <Input
               regionWidth={state.regionWidth}
               cells={getInputCells()}

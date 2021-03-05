@@ -1,7 +1,7 @@
 import React, { useReducer } from "react";
 import { Select } from "../select";
 
-const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
+export const DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
 
 const REGION_DIMENSION_OPTS = Array(4)
   .fill(null)
