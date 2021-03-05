@@ -16,17 +16,18 @@ const DEFAULT_HEIGHT = 3;
 const DEFAULT_DIFFICULTY = 1;
 const RENDER_STYLES = ["Numbers", "Letters", "Mixed"];
 
-const DIFFICULTY_CLUES: { [key: number]: [number, number, number, number] } = {
-  9: [38, 30, 25, 22],
-  12: [80, 64, 56, 47],
-  15: [125, 112, 98, 88],
-  16: [133, 118, 105, 95],
-  18: [175, 160, 150, 140],
-  20: [235, 220, 200, 180],
-  24: [340, 325, 310, 290],
-  25: [425, 400, 350, 310],
-  30: [560, 525, 500, 475],
-  36: [900, 850, 800, 750],
+type DifficultySet = [number, number, number, number, number];
+const DIFFICULTY_CLUES: { [key: number]: DifficultySet } = {
+  9: [38, 30, 25, 22, 0],
+  12: [80, 64, 56, 47, 0],
+  15: [125, 112, 98, 88, 0],
+  16: [133, 118, 105, 95, 0],
+  18: [175, 160, 150, 140, 0],
+  20: [235, 220, 200, 180, 0],
+  24: [340, 325, 310, 290, 0],
+  25: [425, 400, 350, 310, 0],
+  30: [560, 525, 500, 475, 0],
+  36: [900, 850, 800, 750, 0],
 };
 
 interface Cell {
