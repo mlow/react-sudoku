@@ -1,7 +1,5 @@
 # react-sudoku
 
-This was my first introduction into React, inspired by React's Tic-Tac-Toe tutorial.
+Sudoku - in React!
 
-Includes both a sudoku puzzle generator and solver.
-
-![](screenshot.png)
+![](screenshot_3x3.png)
