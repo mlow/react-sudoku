@@ -114,14 +114,12 @@ export class SudokuTransform {
     return chunkify(cells, this.length);
   }
 
-  regionsToRows<T>(cells: T[], split = false) {
-    const rows = mapArray(cells, this._regionIndexToRowIndex);
-    return split ? chunkify(rows, this.length) : rows;
+  regionsToRows<T>(cells: T[]) {
+    return mapArray(cells, this._regionIndexToRowIndex);
   }
 
-  regionsToCols<T>(cells: T[], split = false) {
-    const cols = mapArray(cells, this._regionIndexToColIndex);
-    return split ? chunkify(cols, this.length) : cols;
+  regionsToCols<T>(cells: T[]) {
+    return mapArray(cells, this._regionIndexToColIndex);
   }
 
   rowsToRegions<T>(cells: T[]) {
@@ -149,8 +147,8 @@ export class SudokuTransform {
    * row, column, and region of the given cell index.
    */
   getTakenValues<T extends Cell>(idx: number, cells: T[]) {
-    const rows = this.regionsToRows(cells, true) as T[][];
-    const cols = this.regionsToCols(cells, true) as T[][];
+    const rows = chunkify(this.regionsToRows(cells), this.length);
+    const cols = chunkify(this.regionsToCols(cells), this.length);
     const regions = this.chunkRegions(cells);
     const [row, col] = this.rowColFromRegionIndex(idx);
     const region = this.regionFromRegionIndex(idx);

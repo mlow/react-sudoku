@@ -5,7 +5,7 @@ import "./sudoku.css";
 import { SudokuTransform } from "./transform";
 
 import { useWindowClickListener } from "./effects";
-import { useSudokuApi } from "./api";
+import { useGenerateSudoku, useSudokuSolver } from "./api";
 
 import { Timer } from "./components/timer";
 import { Input, Board, Settings, Cell as CellJsx } from "./components/sudoku";
@@ -93,7 +93,7 @@ interface GameState {
 }
 
 type Action =
-  | { type: "reset" | "regenerate" | "solve" | "toggleShowHints" }
+  | { type: "reset" | "regenerate" | "toggleShowHints" }
   | {
       type: "setSelected" | "setRenderStyle" | "setValue";
       payload: number;
@@ -109,7 +109,8 @@ type Action =
   | {
       type: "onApiLoad";
       payload: { dispatch: React.Dispatch<Action>; cells: number[] };
-    };
+    }
+  | { type: "onSolve"; payload: number[] };
 
 const reducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
@@ -174,6 +175,19 @@ const reducer = (state: GameState, action: Action): GameState => {
             getCell(idx, value, click, state.renderStyle, false, value > 0)
           ),
       };
+    case "onSolve":
+      const transformed = state.transform.rowsToRegions(action.payload);
+      return {
+        ...state,
+        cells: state.cells.map((cell, idx) => {
+          const solved = transformed[idx];
+          if (cell.value !== solved) {
+            cell.value = solved;
+            cell.update();
+          }
+          return cell;
+        }),
+      };
     case "reset":
       return {
         ...state,
@@ -191,8 +205,6 @@ const reducer = (state: GameState, action: Action): GameState => {
         ...state,
         regenerate: !state.regenerate,
       };
-    case "solve":
-      throw new Error("Not implemented.");
     case "toggleShowHints":
       return {
         ...state,
@@ -258,7 +270,7 @@ export const Sudoku = () => {
     timerStart: 0,
   });
 
-  const isLoading = useSudokuApi(
+  const isLoading = useGenerateSudoku(
     state.regionWidth,
     state.regionHeight,
     DIFFICULTY_CLUES[state.regionHeight * state.regionWidth][state.difficulty],
@@ -267,6 +279,9 @@ export const Sudoku = () => {
       (cells) => dispatch({ type: "onApiLoad", payload: { dispatch, cells } }),
       []
     )
+  );
+  const [isSolving, solve] = useSudokuSolver(
+    useCallback((payload) => dispatch({ type: "onSolve", payload }), [])
   );
 
   const board = useRef<HTMLDivElement>(null!);
@@ -310,6 +325,16 @@ export const Sudoku = () => {
     dispatch({ type: "setRenderStyle", payload });
   };
 
+  const handleSolve = () => {
+    solve({
+      regionWidth: state.regionWidth,
+      regionHeight: state.regionHeight,
+      cells: state.transform.regionsToRows(
+        state.cells.map((cell) => cell.value)
+      ),
+    });
+  };
+
   const regions = (): JSX.Element[][] =>
     state.transform.chunkRegions(state.cells.map((cell) => cell.element));
 
@@ -346,7 +371,7 @@ export const Sudoku = () => {
               <Controls
                 onRegenerate={() => dispatch({ type: "regenerate" })}
                 onReset={() => dispatch({ type: "reset" })}
-                onSolve={() => dispatch({ type: "solve" })}
+                onSolve={handleSolve}
               />
             </div>
           </div>
